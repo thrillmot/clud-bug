@@ -1,0 +1,35 @@
+name: Clud Bug 🐛 Crawls Your Code
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            [PROJECT DESCRIPTION — replace this with 2-3 sentences describing the project,
+            its language/framework, and any key files or patterns Claude should know about]
+
+            Review this pull request for critical issues only. Focus on:
+            - Bugs, logic errors, or incorrect behaviour
+            - Security vulnerabilities
+            - Performance problems
+            - Incorrect exception handling (bare excepts, swallowed errors, wrong exception types)
+            - Missing type hints on new functions
+            - Incorrect use of Click (exit codes, error messages) if the project uses it
+            - Missing pytest coverage for new code
+
+            Skip style suggestions, minor naming issues, or anything that
+            doesn't affect correctness, security, or performance.
