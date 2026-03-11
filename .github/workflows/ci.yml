@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm test
+
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Render templates with placeholder values
+        run: |
+          mkdir -p .ci-rendered
+          for tmpl in templates/workflow*.yml.tmpl; do
+            out=".ci-rendered/$(basename "${tmpl%.tmpl}")"
+            sed -e 's/{{PROJECT_DESCRIPTION}}/A test project./g' \
+                -e 's/{{LANGUAGE_HINTS}}//g' \
+                "$tmpl" > "$out"
+          done
+      - name: Install actionlint
+        run: |
+          curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash
+          ./actionlint -version
+      - name: Lint templates
+        run: ./actionlint .ci-rendered/*.yml
+      - name: Lint own workflows
+        run: ./actionlint .github/workflows/*.yml

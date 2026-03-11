@@ -1,0 +1,46 @@
+name: Clud Bug 🐛 Crawls Your Code
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  clud-bug-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*)"
+          prompt: |
+            {{PROJECT_DESCRIPTION}}
+
+            Review this pull request for critical issues only. Focus on:
+            - Bugs, logic errors, or incorrect behaviour
+            - Security vulnerabilities
+            - Performance problems
+            - Broken or missing test coverage for new code
+            {{LANGUAGE_HINTS}}
+
+            Skip style suggestions, minor naming issues, or anything that
+            doesn't affect correctness, security, or performance.
+
+            Any project-specific skills loaded from .claude/skills/ should
+            shape your review — defer to their guidance over generic advice.
+
+            When you finish, post your review as a single PR comment:
+              gh pr comment "$PR_NUMBER" --body "<your review>"
+            For line-specific issues, use the github_inline_comment MCP tool
+            with confirmed: true.
+            If there are no critical issues, post a one-line comment saying so.
