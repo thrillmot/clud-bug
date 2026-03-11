@@ -1,0 +1,37 @@
+{
+  "name": "clud-bug",
+  "version": "0.1.0",
+  "description": "Claude Code PR review GitHub Action with project-aware skills auto-discovered from skills.sh",
+  "type": "module",
+  "license": "MIT",
+  "author": "thrillmot",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thrillmot/clud-bug.git"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "github-action",
+    "code-review",
+    "pull-request",
+    "ai",
+    "skills"
+  ],
+  "bin": {
+    "clud-bug": "./bin/clud-bug.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
