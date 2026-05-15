@@ -17,3 +17,4 @@ site/next-env.d.ts
 
 # Local Claude Code session state
 .claude/scheduled_tasks.lock
+.playwright-mcp/
