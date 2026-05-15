@@ -7,7 +7,7 @@
   --paper-shadow: #d8cdb0;
   --ink: #2b2418;
   --ink-soft: #6b5a40;
-  --ink-faint: #a99576;
+  --ink-faint: #7e6840;  /* darkened from #a99576 for WCAG AA contrast on cream paper */
 
   /* Accents — only two, used sparingly */
   --crimson: #8a1f1f;
