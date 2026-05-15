@@ -21,26 +21,58 @@ jobs:
           # and the gate would silently fall back to advisory.
           fetch-depth: 0
 
-      # Without this guard, claude-code-action silently exits 0 when the
-      # secret is missing — the check turns green and the user thinks Clud
-      # Bug is working when it's a no-op. Fail loud unless this is a fork PR
-      # (where GitHub deliberately withholds secrets — that's by design and
-      # documented in the README's "Fork PR caveat" section).
+      # Three-way guard around the Claude action:
+      #   1. Secret present → no-op pass-through, action runs normally.
+      #   2. Secret missing AND PR is bot-authored or from a fork → post an
+      #      advisory comment explaining the skip, then exit 0 (green check).
+      #      GitHub deliberately withholds secrets from such PRs by design;
+      #      failing red is the wrong signal.
+      #   3. Secret missing AND PR is owner-authored → fail loud with an
+      #      actionable error so the maintainer knows to set the secret.
       - name: Guard — require ANTHROPIC_API_KEY
+        id: guard
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
         run: |
-          if [ -n "$ANTHROPIC_API_KEY" ]; then exit 0; fi
-          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
-            echo "::warning title=Clud Bug 🐛::Fork PR — GitHub doesn't pass repo secrets to fork-triggered workflows. Clud Bug review skipped by design."
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
+          IS_FORK=false
+          [ "$HEAD_REPO" != "$BASE_REPO" ] && IS_FORK=true
+          IS_BOT=false
+          case "$PR_AUTHOR" in *\[bot\]) IS_BOT=true ;; esac
+
+          if $IS_FORK || $IS_BOT; then
+            REASON=$($IS_BOT && echo "bot author ($PR_AUTHOR)" || echo "fork ($HEAD_REPO)")
+            # Dedup: don't post the advisory comment if one already exists.
+            # pull_request: synchronize on a long-running Dependabot PR would
+            # otherwise stack one identical comment per rebase.
+            EXISTING=$(gh api "repos/${BASE_REPO}/issues/${PR_NUMBER}/comments?per_page=100" \
+              --jq '[.[] | select(.user.login == "claude[bot]" and (.body | startswith("## 🐛 Clud Bug skipped")))] | length')
+            if [ "${EXISTING:-0}" = "0" ]; then
+              BODY=$(printf '## 🐛 Clud Bug skipped\n\nThis PR is from a %s. GitHub deliberately does not pass repository secrets to such workflows, so Clud Bug could not authenticate against Anthropic. Review the diff manually.' "$REASON")
+              gh pr comment "$PR_NUMBER" --body "$BODY" || true
+            fi
+            echo "::warning title=Clud Bug 🐛::Skipped — $REASON cannot access repository secrets."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           echo "::error title=Clud Bug 🐛::ANTHROPIC_API_KEY secret is not set on this repository."
           echo "::error::Set it: Settings → Secrets and variables → Actions → New repository secret."
           echo "::error::Without it, Clud Bug review is a silent no-op."
           exit 1
 
       - uses: anthropics/claude-code-action@v1
+        # Skip the action when guard already posted the bot/fork advisory.
+        if: steps.guard.outputs.skip != 'true'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'

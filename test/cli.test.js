@@ -62,6 +62,49 @@ test('init --offline --accept-all in a fresh repo writes workflow + manifest', a
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
+test('init: fresh install gets strictMode: true (v0.4 default)', async () => {
+  const dir = await makeRepo({ 'package.json': '{}' });
+  try {
+    run(dir, ['init', '--offline', '--accept-all']);
+    const manifest = JSON.parse(await readFile(join(dir, '.claude/skills/.clud-bug.json'), 'utf8'));
+    assert.equal(manifest.strictMode, true, 'fresh install should default to strict mode');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('init: existing v0.3 advisory install (no strictMode field, has lastUpdate) is NOT auto-flipped', async () => {
+  const dir = await makeRepo({ 'package.json': '{}' });
+  try {
+    // Pre-seed a v0.3-era manifest: lastUpdate set, strictMode never written.
+    await mkdir(join(dir, '.claude/skills'), { recursive: true });
+    await writeFile(
+      join(dir, '.claude/skills/.clud-bug.json'),
+      JSON.stringify({
+        version: 1,
+        installed: [],
+        lastUpdate: '2026-04-01T00:00:00Z',
+        lastUpdateVersion: '0.3.4',
+      }, null, 2),
+    );
+    run(dir, ['init', '--offline', '--accept-all']);
+    const manifest = JSON.parse(await readFile(join(dir, '.claude/skills/.clud-bug.json'), 'utf8'));
+    assert.equal(manifest.strictMode, undefined, 'pre-existing advisory install must keep advisory behavior');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('init: existing install with explicit strictMode: false stays false', async () => {
+  const dir = await makeRepo({ 'package.json': '{}' });
+  try {
+    await mkdir(join(dir, '.claude/skills'), { recursive: true });
+    await writeFile(
+      join(dir, '.claude/skills/.clud-bug.json'),
+      JSON.stringify({ version: 1, installed: [], strictMode: false }, null, 2),
+    );
+    run(dir, ['init', '--offline', '--accept-all']);
+    const manifest = JSON.parse(await readFile(join(dir, '.claude/skills/.clud-bug.json'), 'utf8'));
+    assert.equal(manifest.strictMode, false, 'explicit opt-out must be preserved');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('list shows baseline + custom after init + hand-authored skill', async () => {
   const dir = await makeRepo({ 'package.json': '{}' });
   try {

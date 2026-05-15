@@ -77,19 +77,27 @@ The CLI prepares an `audits/YYYY-MM-DD.md` stub. For findings, `clud-bug init` a
 
 The workflow ships with `workflow_dispatch` only (manual). The cron is in the file, commented — uncomment for weekly audits.
 
-## Strict mode (opt-in)
+## Strict mode (default since v0.4.0)
 
-By default, Clud Bug is **advisory** — the workflow check turns green when the bot ran successfully, regardless of what it found. Inline comments flag issues; merging is your call.
+Clud Bug runs in **strict mode by default** for new installs. The workflow check fails when Clud Bug flags a critical issue (bug, security, performance, missing test coverage) — green means clean, red means the bot found something to address. Add `clud-bug-review` to your branch protection's required status checks and merging is blocked until findings are addressed.
 
-For repos that want the check status to reflect actual findings, opt into **strict mode** by adding `strictMode: true` to `.claude/skills/.clud-bug.json`:
+`clud-bug init` writes `{ "strictMode": true }` to `.claude/skills/.clud-bug.json`. To opt out into advisory mode (the bot still reviews; the check stays green regardless of findings), set `strictMode: false`:
 
 ```json
-{ "strictMode": true, ... }
+{ "strictMode": false, ... }
 ```
 
-In strict mode, when Clud Bug flags a critical issue (bug, security, performance, missing test coverage), the workflow fails. Add `clud-bug-review` to your branch protection's required status checks and merging is blocked until findings are addressed.
+The toggle takes effect on PRs opened *after* the new value lands on the base branch (the gate reads the manifest from the base ref so PRs can't disable strict on themselves).
 
-Toggle off by removing the `strictMode` field. No workflow rewrite needed.
+**Existing installs upgrading to v0.4.0:** the new default only fires on fresh installs (manifests that have never been touched by `init` or `update`). Existing repos — including v0.3.x advisory installs that never set `strictMode` — keep their prior behavior on re-init. To enable strict mode in an existing repo, add `"strictMode": true` to `.claude/skills/.clud-bug.json` manually.
+
+## Bot-authored PRs (Dependabot, Renovate, fork PRs)
+
+GitHub deliberately doesn't pass repository secrets to workflows triggered by bot-authored PRs (`dependabot[bot]`, `renovate[bot]`) or PRs from forks. The action can't authenticate against Anthropic, so Clud Bug can't review.
+
+Rather than failing red (wrong signal), the workflow detects this case, posts a one-line advisory comment to the PR explaining the skip, and exits 0. The check stays green; the comment makes the skip visible. Reviews are your responsibility on those PRs.
+
+To enable real reviews on Dependabot PRs, [add ANTHROPIC_API_KEY to Dependabot's secret scope](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/configuring-access-to-private-registries-for-dependabot).
 
 ## How skills shape reviews
 
