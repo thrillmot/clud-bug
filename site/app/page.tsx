@@ -115,7 +115,7 @@ export default async function Home() {
                 <span className="specimen-tag">Spec. compliance</span>
                 <h3 className="specimen-name">Compliance &amp; PII</h3>
                 <p className="specimen-desc">
-                  &ldquo;No PII (email, phone, name) in logs, ever. No
+                  &ldquo;No PII (email, phone, name) in logs, ever. No{' '}
                   <code>console.log</code> in <code>app/api/*</code>. Every
                   secret read needs an audit log entry.&rdquo;
                 </p>
