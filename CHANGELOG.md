@@ -2,6 +2,12 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] — 2026-05-15
+
+### Added
+- **`clud-bug edit-workflow` CLI** — packages clud-bug-workflow edits into an isolated PR. `claude-code-action` refuses to run on PRs that modify its own workflow (a security guard); this command keeps the scope clean so non-workflow work isn't blocked alongside it. Refuses to run if the working tree has non-workflow changes.
+- **README "When you edit the workflow"** subsection — documents the upstream self-mod guard so the 401 error doesn't surprise users.
+
 ## [0.4.0] — 2026-05-15
 
 ### Changed (breaking)
@@ -11,6 +17,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.4.1]: https://github.com/thrillmot/clud-bug/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/thrillmot/clud-bug/compare/v0.3.4...v0.4.0
 
 ## [0.3.4] — 2026-05-15
