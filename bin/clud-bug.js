@@ -107,7 +107,13 @@ async function runInit(args) {
   log(`    search terms:     ${signals.searchTerms.join(', ') || '(none)'}`);
 
   const baseline = await loadBaseline(BASELINE_DIR);
-  log(`    baseline kit:     ${baseline.length} specimens`);
+  const fromAgentSkills = baseline.filter((s) => s._source === 'agent-skills').length;
+  const sourceLabel = baseline.length === 0
+    ? ''
+    : fromAgentSkills === baseline.length ? ' (from thrillmot/agent-skills)'
+    : fromAgentSkills === 0               ? ' (bundled fallback)'
+                                          : ` (${fromAgentSkills} from agent-skills, ${baseline.length - fromAgentSkills} bundled)`;
+  log(`    baseline kit:     ${baseline.length} specimens${sourceLabel}`);
 
   let curated = [];
   let searched = [];

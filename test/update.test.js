@@ -10,6 +10,10 @@ const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TEMPLATES = join(REPO_ROOT, 'templates');
 const BASELINE = join(TEMPLATES, 'skills', 'baseline');
 
+// Forced through to loadBaseline so tests don't hit the live agent-skills
+// repo or write to the user's real ~/.cache/clud-bug/skills/ dir.
+const offlineLoadBaseline = { cacheDir: null, fetch: async () => { throw new Error('test: no network'); } };
+
 async function makeRepo(files = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'clud-bug-update-'));
   for (const [path, content] of Object.entries(files)) {
@@ -25,6 +29,7 @@ test('runUpdate: short-circuits when no manifest and no workflow exist', async (
   try {
     const r = await runUpdate({
       cwd: dir, templatesDir: TEMPLATES, baselineDir: BASELINE, ourVersion: '0.3.0',
+      loadBaselineOpts: offlineLoadBaseline,
     });
     assert.equal(r.missing, 'init');
   } finally { await rm(dir, { recursive: true, force: true }); }
@@ -48,6 +53,7 @@ test('runUpdate: rewrites stale workflow + baseline; leaves custom skills alone'
   try {
     const r = await runUpdate({
       cwd: dir, templatesDir: TEMPLATES, baselineDir: BASELINE, ourVersion: '0.3.0',
+      loadBaselineOpts: offlineLoadBaseline,
     });
     // Workflow refreshed
     const wf = await readFile(join(dir, '.github/workflows/clud-bug-review.yml'), 'utf8');
@@ -76,9 +82,9 @@ test('runUpdate: no-ops when files already match latest', async () => {
   });
   try {
     // First run — writes everything.
-    await runUpdate({ cwd: dir, templatesDir: TEMPLATES, baselineDir: BASELINE, ourVersion: '0.3.0' });
+    await runUpdate({ cwd: dir, templatesDir: TEMPLATES, baselineDir: BASELINE, ourVersion: '0.3.0', loadBaselineOpts: offlineLoadBaseline });
     // Second run — should detect everything is current.
-    const r = await runUpdate({ cwd: dir, templatesDir: TEMPLATES, baselineDir: BASELINE, ourVersion: '0.3.0' });
+    const r = await runUpdate({ cwd: dir, templatesDir: TEMPLATES, baselineDir: BASELINE, ourVersion: '0.3.0', loadBaselineOpts: offlineLoadBaseline });
     assert.equal(r.changed.length, 0, 'second run should be a no-op');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
@@ -91,7 +97,7 @@ test('runUpdate: re-renders audit workflow when installed', async () => {
     '.claude/skills/.clud-bug.json': JSON.stringify({ version: 1, installed: [] }),
   });
   try {
-    const r = await runUpdate({ cwd: dir, templatesDir: TEMPLATES, baselineDir: BASELINE, ourVersion: '0.3.0' });
+    const r = await runUpdate({ cwd: dir, templatesDir: TEMPLATES, baselineDir: BASELINE, ourVersion: '0.3.0', loadBaselineOpts: offlineLoadBaseline });
     const audit = await readFile(join(dir, '.github/workflows/clud-bug-audit.yml'), 'utf8');
     assert.match(audit, /Clud Bug 🐛 Audit/);
     assert.ok(r.changed.some((c) => c.label === 'audit workflow'));
