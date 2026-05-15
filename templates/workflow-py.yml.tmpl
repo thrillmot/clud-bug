@@ -120,21 +120,20 @@ jobs:
             with confirmed: true.
             If there are no critical issues, post a one-line comment saying so.
 
-      # Strict-mode gate — see workflow.yml.tmpl for details. Greps the
-      # posted PR comment for the critical-findings sentinel; deterministic.
+      # Strict-mode gate — see workflow.yml.tmpl for design notes.
       - name: Strict mode — fail check on critical findings
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          MANIFEST=".claude/skills/.clud-bug.json"
-          [ -f "$MANIFEST" ] || exit 0
-          STRICT=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$MANIFEST','utf8')).strictMode===true)}catch(e){console.log('false')}")
+          BASE_MANIFEST=$(git show "origin/${{ github.base_ref }}:.claude/skills/.clud-bug.json" 2>/dev/null || echo '{}')
+          STRICT=$(echo "$BASE_MANIFEST" | node -e "let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',()=>{try{console.log(JSON.parse(s).strictMode===true)}catch(e){console.log('false')}})")
           [ "$STRICT" = "true" ] || exit 0
-          BODIES=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments?per_page=20" --jq '.[].body' 2>/dev/null || echo '')
-          if echo "$BODIES" | grep -q "Clud Bug review — critical findings"; then
+          LATEST=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments?sort=created&direction=desc&per_page=100" \
+            --jq '[.[] | select(.user.login == "claude[bot]" and (.body | test("## 🐛 Clud Bug review")))][0].body // ""')
+          if echo "$LATEST" | grep -q "Clud Bug review — critical findings"; then
             echo "::error title=Clud Bug 🐛::Critical issues found and strictMode is enabled — failing this check."
-            echo "::error::See the Clud Bug review comment for details."
+            echo "::error::See the latest Clud Bug review comment for details. Push a fix and the gate will clear on the next run."
             exit 1
           fi
