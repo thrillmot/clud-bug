@@ -63,6 +63,15 @@ jobs:
           # the OIDC exchange automatically.
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Upgrade npm to a Trusted-Publishing-capable version
+        # Node 20 ships npm 10.x. npm 10 signs provenance attestations
+        # but does NOT exchange the OIDC token for a publish token —
+        # it falls back to looking for NPM_TOKEN, finds none, and the
+        # publish PUT gets rejected with a misleading 404. Trusted
+        # Publishing's full flow (sign + auth via OIDC end-to-end)
+        # requires npm 11.5.1+.
+        run: npm install -g npm@latest
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
