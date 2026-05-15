@@ -14,6 +14,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # strict-mode gate reads base ref's manifest
 
       # Without this guard, claude-code-action silently exits 0 when the
       # secret is missing — the check turns green and the user thinks Clud
@@ -42,7 +44,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api graphql:*),Bash(gh api repos/:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api graphql:*),Bash(gh api repos/:*),Bash(cat .claude/skills/.clud-bug.json)"
           prompt: |
             {{PROJECT_DESCRIPTION}}
 
@@ -70,6 +72,22 @@ jobs:
               Skills referenced: [skill-name-1, skill-name-2, ...]
             If you genuinely cited none, list "[none]" and explain why no
             installed skill applied to this diff.
+
+            Strict-mode header (opt-in): if .claude/skills/.clud-bug.json
+            contains { "strictMode": true }, the comment header you post
+            MUST signal whether you flagged a critical issue:
+              IF you flagged any critical issue (bug, security,
+                  performance, missing test coverage):
+                  ## 🐛 Clud Bug review — critical findings
+              OTHERWISE:
+                  ## 🐛 Clud Bug review — clean
+            A post-step in this workflow greps your posted comment for
+            that header and fails the check on "critical findings." The
+            gate is deterministic on top of your judgment.
+
+            If strictMode is NOT set (or absent), keep the existing
+            "## 🐛 Clud Bug review" header — strict mode is opt-in and
+            other repos use the plain header.
 
             Tone: address the author conversationally. A concise field-naturalist
             voice is welcome (you are Clud Bug, examining specimens of code) but
@@ -103,3 +121,24 @@ jobs:
             For line-specific issues, use the github_inline_comment MCP tool
             with confirmed: true.
             If there are no critical issues, post a one-line comment saying so.
+
+      # Strict-mode gate — see workflow.yml.tmpl for full design notes.
+      - name: Strict mode — fail check on critical findings
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          BASE_MANIFEST=$(git show "origin/${{ github.base_ref }}:.claude/skills/.clud-bug.json" 2>&1) || {
+            echo "::warning::Base manifest not found on ${{ github.base_ref }} — strict mode disabled for this run."
+            exit 0
+          }
+          STRICT=$(echo "$BASE_MANIFEST" | node -e "let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',()=>{try{console.log(JSON.parse(s).strictMode===true)}catch(e){console.log('false')}})")
+          [ "$STRICT" = "true" ] || exit 0
+          LATEST=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments?sort=created&direction=desc&per_page=100" \
+            --jq '[.[] | select(.user.login == "claude[bot]" and (.body | startswith("## 🐛 Clud Bug review")))][0].body // ""')
+          if echo "$LATEST" | head -n1 | grep -q "Clud Bug review — critical findings"; then
+            echo "::error title=Clud Bug 🐛::Critical issues found and strictMode is enabled — failing this check."
+            echo "::error::See the latest Clud Bug review comment for details. Push a fix and the gate will clear on the next run."
+            exit 1
+          fi

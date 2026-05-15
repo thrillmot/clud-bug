@@ -2,6 +2,11 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] — 2026-05-15
+
+### Added
+- **Strict mode (opt-in)** — set `strictMode: true` in `.claude/skills/.clud-bug.json` and the workflow check fails when Clud Bug flags any critical issue. Default behavior is unchanged: advisory (green check when the bot ran, regardless of findings). Pair with branch protection's required-status-checks for a real merge gate. Toggleable per-repo without rewriting any workflow.
+
 ## [0.3.3] — 2026-05-15
 
 ### Fixed
@@ -34,6 +39,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Paragraph indent inconsistency on cludbug.dev.** Removed the `text-indent: 1.4em` rule on `.section-prose p + p`.
 - **Bug-pin scuttle animation** snap removed by replacing the 45/47%/90% keyframes with a symmetric 35→65% scuttle.
 
+[0.3.4]: https://github.com/thrillmot/clud-bug/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/thrillmot/clud-bug/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/thrillmot/clud-bug/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/thrillmot/clud-bug/compare/v0.3.0...v0.3.1
