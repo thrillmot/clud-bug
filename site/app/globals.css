@@ -137,27 +137,71 @@ main { position: relative; z-index: 1; }
 
 .plate-label { display: block; }
 
+.plate-gloss {
+  display: block;
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top: 1px dotted var(--ink-faint);
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 0.85rem;
+  font-weight: 300;
+  color: var(--ink-faint);
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: 0;
+  max-width: 14rem;
+}
+.plate-gloss em {
+  font-style: normal;
+  color: var(--ink-soft);
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+/* The colons in the JSX are the natural separator. No ::after pseudo-
+   element needed — adding one collided with the literal ":" producing
+   an awkward "·:" adjacency. */
+
 .bug-pin {
   font-size: 3.5rem;
   display: inline-block;
   margin-top: 1.25rem;
   transform-origin: 60% 80%;
-  animation: scuttle 9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  /* Resting state — animation uses fill-mode 'both' (default behavior of
-     'forwards' + 'backwards' via the keyframe at 0%) so the bug always
-     renders at the resting tilt. */
+  /* Default resting tilt (the scuttle/twitch keyframes layer on top of
+     this via the rotate property). */
+  rotate: -12deg;
+  /* Three independent animations using individual transform properties
+     — these compose, unlike multiple `transform` animations.
+       breathe: continuous 4s scale wobble (the heartbeat).
+       twitch:  brief head-tilt every 9s.
+       scuttle: long-rest traverse every 22s. */
+  animation:
+    breathe 4s ease-in-out infinite,
+    twitch  9s ease-in-out infinite,
+    scuttle 22s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-/* A slow, symmetric scuttle: long rest → easy lean forward → easy lean back
-   → rest again. All keyframes share the same translateY, so the apparent
-   "down jump" the previous version had (sudden swap from 47% to 90%) is
-   gone. Each motion phase has matching duration to its mirror. */
+/* The "breathing" pulse — a 2% scale wobble mimicking respiration. */
+@keyframes breathe {
+  0%, 100% { scale: 1; }
+  50%      { scale: 1.02; }
+}
+
+/* Most of the cycle is rest; the bug perks up briefly every nine seconds. */
+@keyframes twitch {
+  0%, 92%, 100% { rotate: -12deg; }
+  95% { rotate: -9deg; }
+  97% { rotate: -13deg; }
+}
+
+/* The traverse — long rest, easy symmetric scuttle, long rest. */
 @keyframes scuttle {
-  0%,  35%, 100% { transform: rotate(-12deg) translateX(0); }
-  45% { transform: rotate(-2deg) translateX(0.25rem); }
-  50% { transform: rotate(6deg) translateX(0.45rem); }
-  55% { transform: rotate(-2deg) translateX(0.25rem); }
-  65% { transform: rotate(-12deg) translateX(0); }
+  0%, 88%, 100% { translate: 0 0; }
+  92% { translate: 0.25rem 0; }
+  94% { translate: 0.45rem 0; }
+  96% { translate: 0.25rem 0; }
+  98% { translate: 0 0; }
 }
 
 /* Right column: title, subtitle, install */
@@ -494,6 +538,15 @@ main { position: relative; z-index: 1; }
 
 .colophon a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--ink-faint); }
 .colophon a:hover { color: var(--citrus); border-bottom-color: var(--citrus); }
+.colophon .credit {
+  font-family: var(--display);
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+.colophon .credit a { font-weight: 500; }
 
 /* Page-load reveal */
 @keyframes appear {
@@ -507,6 +560,6 @@ main { position: relative; z-index: 1; }
 .appear-4   { animation: appear 0.7s 0.6s both ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
-  .bug-pin { animation: none; }
+  .bug-pin { animation: none; rotate: -12deg; scale: 1; translate: 0 0; }
   [class^='appear'] { animation: none; }
 }
