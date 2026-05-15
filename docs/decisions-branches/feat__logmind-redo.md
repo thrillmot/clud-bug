@@ -30,3 +30,13 @@
 - Existing v0.3.x advisory installs keep advisory behavior on re-init. Self-update workflow PR body announces the new default for repos that want to upgrade. Three regression tests in test/cli.test.js lock the contract.
 
 ---
+## 2026-05-15 11:34 - Site responsive: stack plate as horizontal masthead at ≤600px instead of left-margin column
+
+**Reasoning:** Desktop layout uses a 16rem left-margin plate column. On small viewports this squeezed the title into a thin strip. Audited at 375/480 with Playwright. Solution: at ≤600px, .plate becomes a flex row above the title block — full-width masthead showing plate label + scuttling bug. plate-gloss hidden as doc-noise on small screens.
+
+**Alternatives considered:** Hide plate entirely on mobile; collapse plate-gloss only; redesign hero structure
+
+**Implications:**
+- Two media-query blocks added: ≤600px (single-column flow with masthead, page padding cut, title clamp lowered, footer stacks) and ≤380px (extra-tight tweaks for iPhone SE). Desktop layout pixel-identical above 600px.
+
+---
