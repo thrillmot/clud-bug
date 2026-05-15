@@ -154,7 +154,8 @@ test('loadBaseline: prefers remote (agent-skills) when fetch succeeds', async ()
     assert.equal(out.length, 1);
     assert.equal(out[0].content, 'REMOTE CONTENT');
     assert.equal(out[0]._source, 'agent-skills');
-    assert.match(fetchedUrl, /thrillmot\/agent-skills\/main\/skills\/critical-issues-only\/SKILL\.md/);
+    // Pinned to a SHA, not main — re-couples trust to clud-bug releases.
+    assert.match(fetchedUrl, /thrillmot\/agent-skills\/[0-9a-f]{40}\/skills\/critical-issues-only\/SKILL\.md/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -200,6 +201,43 @@ test('loadBaseline: falls back to bundled on empty remote body', async () => {
     assert.equal(out[0]._source, 'bundled');
   } finally {
     await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadBaseline: cache key differs by upstream base — switching bases re-fetches', async () => {
+  // If the cache key ignored the base URL, a user who set
+  // CLUD_BUG_AGENT_SKILLS_BASE to a fork and then unset it would silently
+  // get the fork's content from cache. Cache keys must include the base.
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-baseline-base-'));
+  const cache = await mkdtemp(join(tmpdir(), 'clud-bug-baseline-base-cache-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(join(dir, 'shared-name.md'), 'BUNDLED');
+    let calls = 0;
+    const fetch = async (url) => {
+      calls++;
+      return { ok: true, status: 200, text: async () => `REMOTE-FROM-${url}` };
+    };
+    const originalBase = process.env.CLUD_BUG_AGENT_SKILLS_BASE;
+    try {
+      process.env.CLUD_BUG_AGENT_SKILLS_BASE = 'https://fork-a.example/skills';
+      // Force re-import to pick up the env-driven AGENT_SKILLS_BASE.
+      // (Tests use fresh import via dynamic specifier with cache-buster.)
+      const modA = await import('../lib/skills.js?base-a');
+      await modA.loadBaseline(dir, { cacheDir: cache, fetch });
+      assert.equal(calls, 1, 'first base: 1 fetch');
+
+      process.env.CLUD_BUG_AGENT_SKILLS_BASE = 'https://fork-b.example/skills';
+      const modB = await import('../lib/skills.js?base-b');
+      await modB.loadBaseline(dir, { cacheDir: cache, fetch });
+      assert.equal(calls, 2, 'second base: cache key differs, must re-fetch');
+    } finally {
+      if (originalBase === undefined) delete process.env.CLUD_BUG_AGENT_SKILLS_BASE;
+      else process.env.CLUD_BUG_AGENT_SKILLS_BASE = originalBase;
+    }
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+    await rm(cache, { recursive: true, force: true });
   }
 });
 

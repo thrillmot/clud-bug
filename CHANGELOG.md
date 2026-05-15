@@ -5,8 +5,12 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 ## [0.5.0] — 2026-05-15
 
 ### Changed
-- **Baseline skills now sourced from [thrillmot/agent-skills](https://github.com/thrillmot/agent-skills) at install time.** `clud-bug init` fetches `https://raw.githubusercontent.com/thrillmot/agent-skills/main/skills/<name>/SKILL.md` for each baseline (`critical-issues-only`, `evidence-based-review`, `respect-existing-conventions`). Fetched skills are cached at `~/.cache/clud-bug/skills/` for 24h to avoid re-fetching across CLI invocations. Network failures, 404s, or empty bodies fall back to the bundled copy shipped in the npm package — works fully offline. Init log shows which path was used (`baseline kit: 3 specimens (from thrillmot/agent-skills)` vs `(bundled fallback)`).
-- Override the upstream URL via `CLUD_BUG_AGENT_SKILLS_BASE` env var (test seam).
+- **Baseline skills now sourced from [thrillmot/agent-skills](https://github.com/thrillmot/agent-skills) at install time, pinned to a specific commit SHA.** `clud-bug init` fetches `https://raw.githubusercontent.com/thrillmot/agent-skills/<SHA>/skills/<name>/SKILL.md` for each baseline (`critical-issues-only`, `evidence-based-review`, `respect-existing-conventions`). The SHA is pinned in `lib/skills.js` (currently `977e439…`) — bumping it requires a clud-bug release, so a compromised commit on agent-skills can't silently land in users' Claude review skills mid-cycle.
+- Fetched skills are cached at `~/.cache/clud-bug/skills/` for 24h. Cache keys include the upstream base URL, so switching bases (via `CLUD_BUG_AGENT_SKILLS_BASE` env override) doesn't poison the cache across forks.
+- Network failures, 404s, empty bodies, and 5s timeouts fall back to the bundled copy shipped in the npm package — works fully offline.
+- Baseline fetches now run in parallel (`Promise.all`), so a fully unreachable upstream caps at one timeout total instead of three (was ~15s, now ~5s).
+- Init log shows the source: `baseline kit: 3 specimens (from thrillmot/agent-skills)` vs `(bundled fallback)` vs a mixed-count form.
+- Override the upstream URL via `CLUD_BUG_AGENT_SKILLS_BASE` env var (test seam + fork support).
 
 ## [0.4.1] — 2026-05-15
 
