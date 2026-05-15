@@ -48,7 +48,7 @@ export default async function Home() {
                 </>
               )}
               {repo && (
-                <div><dt>PRs reviewed</dt><dd>{formatCount(repo.recentMergedCount + repo.openPRs)}</dd></div>
+                <div><dt>PRs reviewed</dt><dd>{formatCount(repo.recentMergedCount)}</dd></div>
               )}
             </dl>
           )}

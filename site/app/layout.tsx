@@ -25,19 +25,20 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://cludbug.dev'),
   title: 'Clud Bug — Claude PR review with project-aware skills',
   description:
-    'A field naturalist for your codebase. Claude PR review tuned to your stack, with skills auto-curated from skills.sh. Open source.',
+    'Clud Bug pins skills auto-curated from skills.sh and ships a Claude PR-review workflow that actually posts comments. A field naturalist for your codebase. Open source.',
   openGraph: {
-    title: 'Clud Bug — Claude PR review with project-aware skills',
+    title: 'Clud Bug — a field guide to specimens crawling your code',
     description:
-      'A field naturalist for your codebase. Claude PR review tuned to your stack.',
+      'Claude PR review tuned to your stack, with skills auto-curated from skills.sh and a baseline kit of review discipline. Reviews land within two minutes.',
     url: 'https://cludbug.dev',
     siteName: 'Clud Bug',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Clud Bug — Claude PR review with project-aware skills',
-    description: 'A field naturalist for your codebase.',
+    title: 'Clud Bug — a field guide to specimens crawling your code',
+    description:
+      'Claude PR review tuned to your stack, with skills auto-curated from skills.sh and a baseline kit of review discipline. Reviews land within two minutes.',
   },
 };
 

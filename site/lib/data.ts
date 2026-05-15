@@ -29,7 +29,10 @@ async function safeFetch(url: string, init?: RequestInit) {
       headers: { accept: 'application/json', ...(init?.headers || {}) },
     });
     if (!res.ok) return null;
-    return res.json();
+    // Must await inside the try so JSON parse failures (truncated stream,
+    // HTML CDN error page returned with 200, etc.) are caught here instead
+    // of escaping to the caller and crashing the Server Component render.
+    return await res.json();
   } catch {
     return null;
   }
@@ -48,11 +51,20 @@ export async function getNpmStats(): Promise<NpmStats> {
 }
 
 export async function getRepoStats(): Promise<RepoStats> {
-  const data = await safeFetch(`https://api.github.com/repos/${REPO}/pulls?state=all&per_page=30`);
-  if (!Array.isArray(data)) return null;
-  const merged = data.filter((p) => p.merged_at).length;
-  const open = data.filter((p) => p.state === 'open').length;
-  return { recentMergedCount: merged, openPRs: open };
+  // Use the search API which returns a real total_count, instead of
+  // /pulls?per_page=30 which would silently cap at 30 forever.
+  // Counts PRs that Clud Bug has actually commented on (its review surface).
+  const reviewed = await safeFetch(
+    `https://api.github.com/search/issues?q=${encodeURIComponent(`repo:${REPO} is:pr commenter:claude[bot]`)}&per_page=1`,
+  );
+  const open = await safeFetch(
+    `https://api.github.com/search/issues?q=${encodeURIComponent(`repo:${REPO} is:pr is:open`)}&per_page=1`,
+  );
+  if (!reviewed || typeof reviewed.total_count !== 'number') return null;
+  return {
+    recentMergedCount: reviewed.total_count,
+    openPRs: open?.total_count ?? 0,
+  };
 }
 
 export async function getLatestPublicReview(): Promise<LatestReview> {
