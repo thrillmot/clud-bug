@@ -232,6 +232,35 @@ main { position: relative; z-index: 1; }
 .actions a:hover { color: var(--citrus); border-bottom-color: var(--citrus); }
 .actions .sep { color: var(--ink-faint); font-style: normal; font-family: var(--mono); }
 
+/* Live tally — small "ledger" beneath the install action row.
+   Each <div> wraps a dt/dd pair laid out vertically. */
+.ledger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2.25rem;
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px dotted var(--ink-faint);
+  max-width: 36rem;
+}
+.ledger > div { display: flex; flex-direction: column; }
+.ledger dt {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 0.15rem;
+}
+.ledger dd {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1.6rem;
+  font-weight: 300;
+  color: var(--leaf);
+  line-height: 1;
+}
+
 /* ─────────────────── SECTION SHELL ─────────────────── */
 
 .section { margin-bottom: 5rem; }
