@@ -14,3 +14,6 @@ site/next-env.d.ts
 # Editor
 .vscode/
 .idea/
+
+# Local Claude Code session state
+.claude/scheduled_tasks.lock
