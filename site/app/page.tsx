@@ -1,19 +1,15 @@
-import { getNpmStats, getRepoStats, getLatestPublicReview, formatCount } from '../lib/data';
+import { getLatestPublicReview } from '../lib/data';
 
 export default async function Home() {
-  // Public-only sources, server-fetched and cached for 1h. Failures degrade
-  // gracefully — sections hide rather than break the page.
-  const [npm, repo, latest] = await Promise.all([
-    getNpmStats(),
-    getRepoStats(),
-    getLatestPublicReview(),
-  ]);
+  // Server-fetched, cached for 1h. Returns null on any failure so the page
+  // still renders; the observation section just hides itself in that case.
+  const latest = await getLatestPublicReview();
 
   return (
     <main className="page">
       <header className="folio">
         <span>A Field Guide to Code Specimens</span>
-        <span>Vol. 0 · {npm ? `v${npm.version}` : 'No. 2'} · MMXXVI</span>
+        <span>Vol. 0 · No. 2 · MMXXVI</span>
       </header>
 
       {/* ─────────── FRONTISPIECE ─────────── */}
@@ -43,19 +39,6 @@ export default async function Home() {
             <span className="sep">·</span>
             <a href="#how-to-collect">How to collect</a>
           </div>
-          {(npm || repo) && (
-            <dl className="ledger appear-4" aria-label="Live field tally">
-              {npm && (
-                <>
-                  <div><dt>Edition</dt><dd>v{npm.version}</dd></div>
-                  <div><dt>Downloads / wk</dt><dd>{formatCount(npm.weeklyDownloads)}</dd></div>
-                </>
-              )}
-              {repo && (
-                <div><dt>PRs reviewed</dt><dd>{formatCount(repo.recentMergedCount)}</dd></div>
-              )}
-            </dl>
-          )}
         </div>
       </section>
 

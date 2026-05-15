@@ -284,35 +284,6 @@ main { position: relative; z-index: 1; }
 .actions a:hover { color: var(--citrus); border-bottom-color: var(--citrus); }
 .actions .sep { color: var(--ink-faint); font-style: normal; font-family: var(--mono); }
 
-/* Live tally — small "ledger" beneath the install action row.
-   Each <div> wraps a dt/dd pair laid out vertically. */
-.ledger {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2.25rem;
-  margin-top: 2rem;
-  padding-top: 1.25rem;
-  border-top: 1px dotted var(--ink-faint);
-  max-width: 36rem;
-}
-.ledger > div { display: flex; flex-direction: column; }
-.ledger dt {
-  font-family: var(--mono);
-  font-size: 0.65rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-  margin-bottom: 0.15rem;
-}
-.ledger dd {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.6rem;
-  font-weight: 300;
-  color: var(--leaf);
-  line-height: 1;
-}
-
 /* ─────────────────── SECTION SHELL ─────────────────── */
 
 .section { margin-bottom: 5rem; }
@@ -354,6 +325,13 @@ main { position: relative; z-index: 1; }
   gap: 1rem;
 }
 
+/* Grid children default to min-width: auto, which means a wide child (like a
+   <pre> with long lines) can push the cell — and the page — beyond the
+   viewport even though the grid template said 1fr. Forcing min-width: 0
+   lets the cell shrink so any inner overflow scrolls inside the child
+   rather than spilling out horizontally. */
+.section-body > * { min-width: 0; }
+
 @media (min-width: 900px) {
   .section-body { grid-template-columns: 16rem 1fr; gap: 3.5rem; align-items: start; }
 }
@@ -369,7 +347,16 @@ main { position: relative; z-index: 1; }
 }
 
 @media (max-width: 899px) {
-  .marginalia { border-left: none; padding-left: 0; padding-top: 0.5rem; border-top: var(--rule); }
+  /* No top rule on the mobile marginalia: the section-head already has a
+     border-bottom, and stacking another rule directly under it produces
+     visible double dividers. Use a hairline accent instead. */
+  .marginalia {
+    border-left: none;
+    padding-left: 0;
+    padding-top: 0.5rem;
+    margin-bottom: 1.25rem;
+    color: var(--ink-soft);
+  }
 }
 
 .section-prose { max-width: var(--col); }
@@ -378,12 +365,17 @@ main { position: relative; z-index: 1; }
    to multi-paragraph ones. Margin-only separation reads consistently across
    all section variants. */
 .section-prose strong { font-weight: 600; color: var(--ink); }
-.section-prose code {
+/* Inline code anywhere in body content (prose, marginalia, observation).
+   Mono fonts ship visually larger than serif body text; without this the
+   inline tokens overpower their surroundings. Applies to every `code` that
+   isn't inside a `pre` (terminal blocks have their own scaling). */
+:where(.section-prose, .marginalia, .observation, .actions) code {
   font-family: var(--mono);
-  font-size: 0.88em;
+  font-size: 0.86em;
   background: var(--paper-warm);
   padding: 0.1em 0.4em;
   border: 1px dotted var(--ink-faint);
+  white-space: nowrap;
 }
 
 /* ─────────────────── SPECIMENS (the three baseline skills) ─────────────────── */
@@ -620,12 +612,13 @@ main { position: relative; z-index: 1; }
     margin-top: 1.25rem;
   }
 
-  /* Live-data ledger: two columns max so labels don't crush. */
-  .ledger { gap: 1.25rem 1.75rem; margin-top: 1.5rem; padding-top: 1rem; }
-  .ledger dd { font-size: 1.4rem; }
-
-  /* Section heads stay readable but smaller. */
-  .section-title { font-size: 2rem; }
+  /* Section heads stay readable but smaller. The numeral becomes a tighter
+     badge above the title — `§ I — Habitat & Habit` shouldn't try to
+     occupy a full line of the 16rem desktop column on mobile, where it
+     just looks like a header that's heavier than the title. */
+  .section-head { gap: 0.35rem; padding-bottom: 0.6rem; margin-bottom: 1.5rem; }
+  .section-num { font-size: 0.6rem; }
+  .section-title { font-size: 1.85rem; }
 
   /* Specimens already stack at 900px; just shrink padding. */
   .specimen { padding: 1.25rem; }
