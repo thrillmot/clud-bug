@@ -42,4 +42,15 @@ jobs:
       - name: Lint templates
         run: ./actionlint .ci-rendered/*.yml
       - name: Lint own workflows
-        run: ./actionlint .github/workflows/*.yml
+        # Scoped to clud-bug-owned workflows only. Logmind-installed workflows
+        # (check-decisions, check-doc-links, logmind-aggregate) are managed
+        # upstream by the logmind tool — file shellcheck issues against
+        # thrillmot/logmind, not here.
+        run: |
+          for wf in .github/workflows/ci.yml \
+                    .github/workflows/clud-bug-review.yml \
+                    .github/workflows/clud-bug-audit.yml \
+                    .github/workflows/clud-bug-self-update.yml \
+                    .github/workflows/claude-code-review.yml; do
+            [ -f "$wf" ] && ./actionlint "$wf"
+          done
