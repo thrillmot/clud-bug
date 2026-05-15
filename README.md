@@ -46,6 +46,21 @@ npx clud-bug init [options]
   --help,-h       Show help.
 ```
 
+## Auditing the whole repo
+
+PR reviews catch issues entering. Audits catch issues that already crossed the line.
+
+```bash
+clud-bug audit                      # walk every tracked file
+clud-bug audit --changed-in 7d      # only files touched in the last 7 days
+clud-bug audit --since 2026-01-01   # only files touched since a date
+clud-bug audit --scope 'src/**/*.ts'  # narrow by glob (repeatable)
+```
+
+The CLI prepares an `audits/YYYY-MM-DD.md` stub. For findings, `clud-bug init` also installed `.github/workflows/clud-bug-audit.yml` — go to **Actions → Clud Bug 🐛 Audit → Run workflow**. Clud Bug walks the manifest, appends findings to the same file, opens a PR you can read, act on, then merge or close.
+
+The workflow ships with `workflow_dispatch` only (manual). The cron is in the file, commented — uncomment for weekly audits.
+
 ## Managing skills
 
 After `init`, four commands let you evolve the skill set without re-running the whole setup:

@@ -12,19 +12,28 @@ import {
   SkillsClient, rankAndCap, writeSkills, writeSkill, loadBaseline,
   readManifest, writeManifest, removeSkill, listInstalled, diffManifest,
 } from '../lib/skills.js';
+import { computeAuditFileSet, renderAuditHeader } from '../lib/audit.js';
 
 const PKG_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TEMPLATES = join(PKG_ROOT, 'templates');
 const BASELINE_DIR = join(TEMPLATES, 'skills', 'baseline');
 
 function parseArgs(argv) {
-  const args = { _: [], offline: false, acceptAll: false, commit: false, help: false, version: false };
-  for (const a of argv) {
+  const args = {
+    _: [], offline: false, acceptAll: false, commit: false, help: false, version: false,
+    since: null, changedIn: null, scopes: [], out: null,
+  };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
     if (a === '--offline') args.offline = true;
     else if (a === '--accept-all' || a === '-y') args.acceptAll = true;
     else if (a === '--commit') args.commit = true;
     else if (a === '--help' || a === '-h') args.help = true;
     else if (a === '--version' || a === '-v') args.version = true;
+    else if (a === '--since') args.since = argv[++i];
+    else if (a === '--changed-in') args.changedIn = argv[++i];
+    else if (a === '--scope') args.scopes.push(argv[++i]);
+    else if (a === '--out') args.out = argv[++i];
     else args._.push(a);
   }
   return args;
@@ -36,16 +45,22 @@ Usage:
   npx clud-bug <command> [options]
 
 Commands:
-  init                  Open field season: survey the repo, pin baseline specimens, write the workflow.
+  init                  Open field season: survey the repo, pin baseline specimens, write the workflows.
   list                  Show your collection (baseline / from skills.sh / custom).
   add <source/name>     Pin one new specimen from skills.sh (e.g. vercel-labs/skills/next-best-practices).
   remove <slug>         Unpin a clud-bug-managed specimen (refuses to touch your custom ones).
   refresh               Re-survey, diff against your collection, prompt to update.
+  audit                 Walk the whole habitat (or a recent slice) and prepare a report stub.
+                        Use --since / --changed-in / --scope to narrow.
 
 Options:
   --offline             Skip skills.sh; pin only the bundled baseline specimens.
   --accept-all,-y       Accept the recommended specimens without prompting.
   --commit              git add + commit the generated kit when done (init only).
+  --since <date>        Audit only files changed in commits after <date> (git date string).
+  --changed-in <dur>    Audit only files changed in the past <dur>: 7d, 2w, 1mo, 1y. (audit only)
+  --scope <glob>        Limit audit to files matching <glob>; repeatable. (audit only)
+  --out <path>          Where to write the audit stub. Default: audits/YYYY-MM-DD.md
   --help,-h             Show this help.
   --version,-v          Show version.
 `;
@@ -67,6 +82,7 @@ async function main() {
     case 'add':     return runAdd(args);
     case 'remove':  return runRemove(args);
     case 'refresh': return runRefresh(args);
+    case 'audit':   return runAudit(args);
     default:
       process.stderr.write(`Unknown command: ${cmd || '(none)'}\n\n${HELP}`);
       process.exit(2);
@@ -135,9 +151,16 @@ async function runInit(args) {
   await writeFile(workflowPath, workflow);
   log(`    wrote ${rel(cwd, workflowPath)}`);
 
+  // Install the audit workflow alongside the per-PR review one.
+  // Manual-trigger by default; users opt into the cron by uncommenting.
+  const auditTmpl = await readFile(join(TEMPLATES, 'audit.yml.tmpl'), 'utf8');
+  const auditPath = join(cwd, '.github', 'workflows', 'clud-bug-audit.yml');
+  await writeFile(auditPath, auditTmpl);
+  log(`    wrote ${rel(cwd, auditPath)}`);
+
   if (args.commit) {
     log('  committing...');
-    spawnSync('git', ['add', '.claude', '.github/workflows/clud-bug-review.yml'], { cwd, stdio: 'inherit' });
+    spawnSync('git', ['add', '.claude', '.github/workflows/clud-bug-review.yml', '.github/workflows/clud-bug-audit.yml'], { cwd, stdio: 'inherit' });
     spawnSync('git', ['commit', '-m', 'Add clud-bug 🐛 — a field guide to specimens crawling your code'], { cwd, stdio: 'inherit' });
   }
 
@@ -146,13 +169,14 @@ async function runInit(args) {
   log('  1. Set ANTHROPIC_API_KEY in your repo secrets:');
   log('     Settings → Secrets and variables → Actions → New repository secret');
   if (!args.commit) {
-    log('  2. git add .claude .github/workflows/clud-bug-review.yml && git commit && git push');
+    log('  2. git add .claude .github/workflows/clud-bug-*.yml && git commit && git push');
     log('  3. Open a PR — the naturalist arrives within ~2 minutes.');
   } else {
     log('  2. git push, then open a PR — the naturalist arrives within ~2 minutes.');
   }
   log('');
   log('Drop your own .claude/skills/<name>/SKILL.md files anytime — they get pinned automatically.');
+  log('For a whole-repo walk: Actions tab → Clud Bug 🐛 Audit → Run workflow.');
 }
 
 async function promptForSkills(recommended) {
@@ -308,6 +332,47 @@ async function runRefresh(args) {
   if (diff.add.length) await writeSkills(skillsDir, diff.add, client);
   for (const entry of diff.remove) await removeSkill(skillsDir, entry.slug);
   log('  ✓ collection updated. Commit + push to apply on the next PR.');
+}
+
+async function runAudit(args) {
+  const cwd = process.cwd();
+  const date = new Date().toISOString().slice(0, 10);
+
+  let scopeLabel;
+  if (args.since) scopeLabel = `commits since ${args.since}`;
+  else if (args.changedIn) scopeLabel = `files changed in the past ${args.changedIn}`;
+  else if (args.scopes.length) scopeLabel = `glob ${args.scopes.join(', ')}`;
+  else scopeLabel = 'all tracked files';
+
+  log(`🐛 Audit walk in ${cwd}.`);
+  log(`  scope: ${scopeLabel}`);
+
+  let files;
+  try {
+    files = computeAuditFileSet({
+      cwd,
+      since: args.since,
+      changedIn: args.changedIn,
+      scopes: args.scopes,
+    });
+  } catch (err) {
+    process.stderr.write(`clud-bug audit: ${err.message}\n`);
+    process.exit(2);
+  }
+  log(`  surveyed: ${files.length} file${files.length === 1 ? '' : 's'}`);
+
+  if (files.length === 0) {
+    log('  Nothing in scope. Try widening --scope or --changed-in.');
+    return;
+  }
+
+  const outPath = args.out || join(cwd, 'audits', `${date}.md`);
+  await mkdir(dirname(outPath), { recursive: true });
+  await writeFile(outPath, renderAuditHeader({ date, scopeLabel, files }));
+  log(`  ✓ wrote stub: ${rel(cwd, outPath)}`);
+  log('');
+  log('Stub is empty findings — populated by the GitHub Action.');
+  log('Run locally without the workflow if you want — Clud Bug review needs the action runner + ANTHROPIC_API_KEY.');
 }
 
 function rel(from, to) {
