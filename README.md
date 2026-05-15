@@ -77,6 +77,17 @@ The CLI prepares an `audits/YYYY-MM-DD.md` stub. For findings, `clud-bug init` a
 
 The workflow ships with `workflow_dispatch` only (manual). The cron is in the file, commented — uncomment for weekly audits.
 
+## How skills shape reviews
+
+Skills aren't background reading material for the bot — they're rules with authority. The workflow prompt now requires Clud Bug to:
+
+1. **Cite the skill by name** when applying its guidance: e.g. `[evidence-based-review]: this claim isn't anchored to a line`.
+2. **End every review with a footer** listing which skills shaped the findings: `Skills referenced: [critical-issues-only, next-best-practices, my-team-rules]`.
+
+The footer is your audit trail. If a review's footer is `[none]`, either the bot found nothing relevant in your installed skills (and should explain why), or your skill set isn't covering the kinds of changes you actually ship — a signal to add or write new specimens.
+
+`clud-bug init` warns when it would install only baseline specimens. Pair with at least one project-aware skill from skills.sh, or your own — that's where the wedge over stock Claude review comes from.
+
 ## Managing skills
 
 After `init`, four commands let you evolve the skill set without re-running the whole setup:
