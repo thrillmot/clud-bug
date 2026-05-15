@@ -2,6 +2,11 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] — 2026-05-15
+
+### Changed
+- **Bumped baseline-skills SHA pin to [`a4455977`](https://github.com/thrillmot/agent-skills/commit/a44559770686e6c51d08ba5bb842d78f85876fb2)** so all four baseline skills (`critical-issues-only`, `evidence-based-review`, `respect-existing-conventions`, `clud-bug-collaboration`) now resolve from `thrillmot/agent-skills` instead of silently falling back to bundled copies. Prior pin pointed at a tree where only `skills/logmind/SKILL.md` existed; every install was fallback-only. Fresh installs will now log `baseline kit: 4 specimens (from thrillmot/agent-skills)` instead of `(bundled fallback)`. Bundled copies still ship as the offline fallback.
+
 ## [0.5.1] — 2026-05-15
 
 ### Added
@@ -34,6 +39,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.5.2]: https://github.com/thrillmot/clud-bug/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/thrillmot/clud-bug/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/thrillmot/clud-bug/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/thrillmot/clud-bug/compare/v0.4.0...v0.4.1
