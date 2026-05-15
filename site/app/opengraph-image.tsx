@@ -261,6 +261,6 @@ export default async function OG() {
         </div>
       </div>
     ),
-    { ...size, fonts },
+    { ...size, fonts, emoji: 'twemoji' },
   );
 }
