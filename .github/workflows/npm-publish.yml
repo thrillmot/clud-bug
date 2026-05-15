@@ -1,0 +1,84 @@
+name: npm publish
+
+# Publishes clud-bug to npm via OIDC Trusted Publishing — no NPM_TOKEN
+# secret stored anywhere. Configured at:
+#   https://www.npmjs.com/package/clud-bug → Settings → Publishing access
+#   → Trusted Publisher: thrillmot/clud-bug, workflow: npm-publish.yml.
+#
+# Triggers
+# --------
+#   push: tags v*
+#       Push a tag (e.g. `git tag v0.5.3 && git push origin v0.5.3`) and
+#       this workflow runs against that tag's commit. The tarball npm
+#       receives is exactly the code at that tag.
+#   workflow_dispatch
+#       Manual run for older tags that already exist (e.g. v0.4.1, v0.5.0).
+#       Pass the tag name; the workflow checks it out and publishes.
+#
+# Why this beats a long-lived NPM_TOKEN
+# -------------------------------------
+# - No secret to leak, rotate, or revoke.
+# - GitHub mints a short-lived OIDC token per run; npm exchanges it for a
+#   one-shot publish token scoped to this exact workflow + commit.
+# - Each published version carries a cryptographic provenance attestation
+#   (the "✓ Published from GitHub Actions" badge on npm) so consumers can
+#   verify the tarball came from this repo.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v0.5.2)'
+        required: true
+        type: string
+
+# Default to no permissions; the publish job opts back into the two it needs.
+permissions: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write    # OIDC for npm Trusted Publishing + provenance
+    env:
+      # See clud-bug-review.yml for the rationale on this env var.
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v5
+        with:
+          # On tag push, github.ref is refs/tags/vX.Y.Z (correct).
+          # On workflow_dispatch, fall back to the input.
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Set up Node + npm registry
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          # Required for the OIDC handshake; setup-node writes a token-less
+          # .npmrc pointing at the registry, then `npm publish` performs
+          # the OIDC exchange automatically.
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm to a Trusted-Publishing-capable version
+        # Node 20 ships npm 10.x. npm 10 signs provenance attestations
+        # but does NOT exchange the OIDC token for a publish token —
+        # it falls back to looking for NPM_TOKEN, finds none, and the
+        # publish PUT gets rejected with a misleading 404. Trusted
+        # Publishing's full flow (sign + auth via OIDC end-to-end)
+        # requires npm 11.5.1+.
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Publish
+        # --provenance is what triggers the OIDC exchange + attestation
+        # generation. --access public is required for unscoped packages
+        # (clud-bug is unscoped, but harmless either way).
+        # `prepublishOnly` in package.json runs `npm test` first, so a
+        # broken tag fails the publish loudly instead of silently shipping.
+        run: npm publish --provenance --access public
