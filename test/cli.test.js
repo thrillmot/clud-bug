@@ -57,8 +57,10 @@ test('init --offline --accept-all in a fresh repo writes workflow + manifest', a
     const wf = await readFile(join(dir, '.github/workflows/clud-bug-review.yml'), 'utf8');
     assert.match(wf, /allowedTools/);
     const manifest = JSON.parse(await readFile(join(dir, '.claude/skills/.clud-bug.json'), 'utf8'));
-    assert.equal(manifest.installed.length, 3, 'should install 3 baseline skills');
+    assert.equal(manifest.installed.length, 4, 'should install 4 baseline skills');
     assert.ok(manifest.installed.every(e => e.kind === 'baseline'));
+    // The new collaboration skill ships in the baseline kit.
+    assert.ok(manifest.installed.some(e => e.slug === 'clud-bug-collaboration'));
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
