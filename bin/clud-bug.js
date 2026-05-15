@@ -178,15 +178,18 @@ async function runInit(args) {
   await writeFile(selfUpdatePath, selfUpdateTmpl);
   log(`    wrote ${rel(cwd, selfUpdatePath)}`);
 
-  // Stamp the manifest. Sets strictMode: true by default — clud-bug is
-  // designed to be a merge gate, not advisory. Existing installs (manifests
-  // already present without strictMode) are NOT auto-flipped; only fresh
-  // inits get the new default. Users opt out by setting strictMode: false.
+  // Stamp the manifest. Sets strictMode: true ONLY on fresh installs —
+  // a manifest that's never been touched by clud-bug init/update has no
+  // lastUpdate field. Existing v0.3.x advisory installs (where strictMode
+  // was never written and so == undefined) keep their advisory behavior
+  // because lastUpdate IS set; the strictMode default only fires on truly
+  // fresh inits. Users opt out by setting strictMode: false.
   const skillsDirPath = join(cwd, '.claude', 'skills');
   const manifest = await readManifest(skillsDirPath);
+  const isFreshInstall = manifest.lastUpdate === undefined;
   manifest.lastUpdateVersion = await readPkgVersion();
   manifest.lastUpdate = new Date().toISOString();
-  if (manifest.strictMode === undefined) {
+  if (isFreshInstall && manifest.strictMode === undefined) {
     manifest.strictMode = true;
   }
   await writeManifest(skillsDirPath, manifest);
