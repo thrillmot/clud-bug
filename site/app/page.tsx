@@ -71,46 +71,75 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ─────────── §II — SPECIMENS ─────────── */}
+      {/* ─────────── §II — SKILLS ─────────── */}
       <section className="section">
         <header className="section-head">
-          <span className="section-num">§ II — Type Specimens</span>
-          <h2 className="section-title">Three skills, always pinned.</h2>
+          <span className="section-num">§ II — Specimens for your habitat</span>
+          <h2 className="section-title">Skills are how Clud Bug knows your codebase.</h2>
         </header>
         <div className="section-body">
           <aside className="marginalia">
-            Bundled with every install. Combine with skills curated from{' '}
-            <a href="https://skills.sh" style={{ color: 'inherit' }}>skills.sh</a>{' '}
-            and your own <code>.claude/skills/</code>.
+            Drop a Markdown file into <code>.claude/skills/</code> and Clud Bug
+            cites it by name on every review. Your team&rsquo;s standards
+            become the reviewer.
           </aside>
-          <div className="specimens">
-            <article className="specimen">
-              <span className="specimen-tag">Specimen 01</span>
-              <h3 className="specimen-name">Critical issues only</h3>
-              <p className="specimen-desc">
-                Flags only correctness, security, and performance defects. Suppresses
-                style nits and naming preferences that don&rsquo;t change behavior.
-              </p>
-              <span className="specimen-pin">cat. № CB-001</span>
-            </article>
-            <article className="specimen">
-              <span className="specimen-tag">Specimen 02</span>
-              <h3 className="specimen-name">Evidence-based review</h3>
-              <p className="specimen-desc">
-                Every claim must quote the line under criticism. No hand-waving, no
-                vague &ldquo;might cause issues.&rdquo; Cite or delete.
-              </p>
-              <span className="specimen-pin">cat. № CB-002</span>
-            </article>
-            <article className="specimen">
-              <span className="specimen-tag">Specimen 03</span>
-              <h3 className="specimen-name">Respect existing conventions</h3>
-              <p className="specimen-desc">
-                A code review is not a redesign. Don&rsquo;t suggest patterns that fight
-                the surrounding codebase&rsquo;s established style.
-              </p>
-              <span className="specimen-pin">cat. № CB-003</span>
-            </article>
+          <div>
+            <p className="section-prose-lead">
+              Generic PR review tools evaluate your code against generic best
+              practices. Clud Bug evaluates it against <em>your</em> standards
+              &mdash; encoded as plain Markdown the bot loads on every PR. A
+              few of the high-value patterns teams write:
+            </p>
+            <div className="specimens">
+              <article className="specimen">
+                <span className="specimen-tag">Spec. brand-voice</span>
+                <h3 className="specimen-name">Brand voice review</h3>
+                <p className="specimen-desc">
+                  &ldquo;Microcopy reviewed against the brand guide. Button
+                  labels follow verb-noun. Toasts ≤ 80 chars. No exclamation
+                  marks outside the success state.&rdquo;
+                </p>
+                <span className="specimen-pin">cat. № YOU-001</span>
+              </article>
+              <article className="specimen">
+                <span className="specimen-tag">Spec. api-contract</span>
+                <h3 className="specimen-name">API contract enforcement</h3>
+                <p className="specimen-desc">
+                  &ldquo;Anything under <code>/v1/*</code> is frozen. Schema
+                  changes need a <code>/v2</code> alongside. Flag breaking
+                  changes; require deprecation headers on removals.&rdquo;
+                </p>
+                <span className="specimen-pin">cat. № YOU-002</span>
+              </article>
+              <article className="specimen">
+                <span className="specimen-tag">Spec. compliance</span>
+                <h3 className="specimen-name">Compliance &amp; PII</h3>
+                <p className="specimen-desc">
+                  &ldquo;No PII (email, phone, name) in logs, ever. No{' '}
+                  <code>console.log</code> in <code>app/api/*</code>. Every
+                  secret read needs an audit log entry.&rdquo;
+                </p>
+                <span className="specimen-pin">cat. № YOU-003</span>
+              </article>
+              <article className="specimen">
+                <span className="specimen-tag">Spec. test-discipline</span>
+                <h3 className="specimen-name">Test discipline</h3>
+                <p className="specimen-desc">
+                  &ldquo;Every new endpoint ships a happy-path and a 4xx test
+                  in the same PR. Refactors can&rsquo;t reduce test count
+                  without an explicit note.&rdquo;
+                </p>
+                <span className="specimen-pin">cat. № YOU-004</span>
+              </article>
+            </div>
+            <p className="specimens-footer">
+              Plus four baseline skills always pinned&nbsp;—{' '}
+              <code>critical-issues-only</code>,{' '}
+              <code>evidence-based-review</code>,{' '}
+              <code>respect-existing-conventions</code>,{' '}
+              <code>clud-bug-collaboration</code>. Browse community-contributed
+              skills at <a href="https://skills.sh">skills.sh</a>.
+            </p>
           </div>
         </div>
       </section>
@@ -161,15 +190,12 @@ export default async function Home() {
           </aside>
           <div>
             <pre className="terminal">
-              <span className="comment"># 1. Survey the habitat, pin specimens, draft the field kit.</span>{'\n'}
               <span className="cmd">npx clud-bug init</span>{'\n'}
-              <span className="out">  🐛 Field season opens in <span className="path">~/your-repo</span>.</span>{'\n'}
-              <span className="out">    baseline kit:     <span className="num">3</span> specimens</span>{'\n'}
-              <span className="out">  pinning specimens to <span className="path">.claude/skills/</span>...</span>{'\n'}
-              <span className="out">    pinned <span className="num">3</span> specimens</span>{'\n'}
+              <span className="out">  🐛 Field season opens here.</span>{'\n'}
+              <span className="out">    baseline kit: <span className="num">4</span> specimens</span>{'\n'}
+              <span className="out">  pinned <span className="num">4</span> to <span className="path">.claude/skills/</span></span>{'\n'}
               <span className="out">  wrote <span className="path">.github/workflows/clud-bug-review.yml</span></span>{'\n\n'}
-              <span className="comment"># 2. Commit the field kit and push.</span>{'\n'}
-              <span className="cmd">git add <span className="path">.claude .github/workflows/clud-bug-review.yml</span></span>{'\n'}
+              <span className="cmd">git add <span className="path">.claude .github/workflows/</span></span>{'\n'}
               <span className="cmd">git commit -m &quot;Add clud-bug&quot; && git push</span>{'\n'}
             </pre>
           </div>
