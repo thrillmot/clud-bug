@@ -89,7 +89,7 @@ Clud Bug runs in **strict mode by default** for new installs. The workflow check
 
 The toggle takes effect on PRs opened *after* the new value lands on the base branch (the gate reads the manifest from the base ref so PRs can't disable strict on themselves).
 
-**Existing installs upgrading to v0.4.0:** strictMode is only set when missing — your prior advisory configuration is preserved. To enable strict mode in an existing repo, add the field manually.
+**Existing installs upgrading to v0.4.0:** the new default only fires on fresh installs (manifests that have never been touched by `init` or `update`). Existing repos — including v0.3.x advisory installs that never set `strictMode` — keep their prior behavior on re-init. To enable strict mode in an existing repo, add `"strictMode": true` to `.claude/skills/.clud-bug.json` manually.
 
 ## Bot-authored PRs (Dependabot, Renovate, fork PRs)
 
