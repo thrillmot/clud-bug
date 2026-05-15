@@ -21,6 +21,10 @@ export default async function Home() {
         <aside className="plate appear">
           <span className="plate-number">№ I</span>
           <span className="plate-label">Plate I — Frontispiece</span>
+          <span className="plate-gloss" aria-hidden>
+            <em>Plate</em>: a labeled illustration in a field guide.
+            <em>Frontispiece</em>: the cover plate.
+          </span>
           <span className="bug-pin" aria-hidden>🐛</span>
         </aside>
         <div>
@@ -192,6 +196,9 @@ export default async function Home() {
       <footer className="colophon">
         <span>
           Open source. <a href="https://github.com/thrillmot/clud-bug/blob/main/LICENSE">MIT</a>.
+        </span>
+        <span className="credit">
+          a <a href="https://thrillmot.com" rel="noopener">thrillmot</a> project
         </span>
         <span>
           <a href="https://github.com/thrillmot/clud-bug">github.com/thrillmot/clud-bug</a>

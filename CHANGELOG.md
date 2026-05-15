@@ -2,6 +2,13 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — site-only
+
+### Added
+- **Bug emoji is alive.** Hero bug pin now layers three independent animations (breathe + twitch + scuttle) using individual `rotate`/`scale`/`translate` properties so they actually compose instead of overriding each other. Continuous gentle "breathing," rare head tilts, and the existing slow traverse — but each on its own clock so the motion never feels mechanical. Honors `prefers-reduced-motion`.
+- **Plate label gloss.** "Plate I — Frontispiece" was on-brand vintage-naturalist convention but opaque to first-time visitors. Added a small dotted-divider gloss explaining the term: *"Plate: a labeled illustration in a field guide. Frontispiece: the cover plate."* Cool intact, meaning unlocked.
+- **Thrillmot credit in the colophon.** Small italic *"a thrillmot project"* in the footer linking to thrillmot.com, between the MIT line and the GitHub link.
+
 ## [0.3.4] — 2026-05-15
 
 ### Added
