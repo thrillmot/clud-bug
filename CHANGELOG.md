@@ -2,12 +2,16 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — site-only
+## [0.4.0] — 2026-05-15
+
+### Changed (breaking)
+- **Strict mode is now the default for new installs.** `clud-bug init` writes `{ "strictMode": true }` to `.claude/skills/.clud-bug.json`. Reviews that flag critical issues fail the workflow check — pair with branch protection's required status checks for a real merge gate. Existing installs are NOT auto-flipped (the field is only set when missing); your prior advisory behavior is preserved unless you add the field. To opt new installs into advisory, set `strictMode: false`.
 
 ### Added
-- **Bug emoji is alive.** Hero bug pin now layers three independent animations (breathe + twitch + scuttle) using individual `rotate`/`scale`/`translate` properties so they actually compose instead of overriding each other. Continuous gentle "breathing," rare head tilts, and the existing slow traverse — but each on its own clock so the motion never feels mechanical. Honors `prefers-reduced-motion`.
-- **Plate label gloss.** "Plate I — Frontispiece" was on-brand vintage-naturalist convention but opaque to first-time visitors. Added a small dotted-divider gloss explaining the term: *"Plate: a labeled illustration in a field guide. Frontispiece: the cover plate."* Cool intact, meaning unlocked.
-- **Thrillmot credit in the colophon.** Small italic *"a thrillmot project"* in the footer linking to thrillmot.com, between the MIT line and the GitHub link.
+- **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
+- **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
+
+[0.4.0]: https://github.com/thrillmot/clud-bug/compare/v0.3.4...v0.4.0
 
 ## [0.3.4] — 2026-05-15
 

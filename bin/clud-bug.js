@@ -178,13 +178,17 @@ async function runInit(args) {
   await writeFile(selfUpdatePath, selfUpdateTmpl);
   log(`    wrote ${rel(cwd, selfUpdatePath)}`);
 
-  // Stamp the manifest with the version that did the install so the
-  // self-update workflow can compare. (writeSkills only writes installed
-  // entries; we add a separate stamp here.)
+  // Stamp the manifest. Sets strictMode: true by default — clud-bug is
+  // designed to be a merge gate, not advisory. Existing installs (manifests
+  // already present without strictMode) are NOT auto-flipped; only fresh
+  // inits get the new default. Users opt out by setting strictMode: false.
   const skillsDirPath = join(cwd, '.claude', 'skills');
   const manifest = await readManifest(skillsDirPath);
   manifest.lastUpdateVersion = await readPkgVersion();
   manifest.lastUpdate = new Date().toISOString();
+  if (manifest.strictMode === undefined) {
+    manifest.strictMode = true;
+  }
   await writeManifest(skillsDirPath, manifest);
 
   if (args.commit) {
@@ -207,6 +211,10 @@ async function runInit(args) {
   log('Drop your own .claude/skills/<name>/SKILL.md files anytime — they get pinned automatically.');
   log('For a whole-repo walk: Actions tab → Clud Bug 🐛 Audit → Run workflow.');
   log('Self-update is on (weekly Mondays 12:00 UTC). Pin via "pinVersion" in .claude/skills/.clud-bug.json.');
+  log('');
+  log('Strict mode is ON by default (clud-bug-review fails the check on critical findings).');
+  log('  • Add `clud-bug-review` to your branch protection required checks for full enforcement.');
+  log('  • Opt out by setting "strictMode": false in .claude/skills/.clud-bug.json.');
 }
 
 async function promptForSkills(recommended) {
