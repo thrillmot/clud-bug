@@ -30,3 +30,13 @@
 - Reviews in this repo since v0.3.2 end with 'Skills referenced: [...]'. Empty-skills warning in init steers users toward project-specific skills (the actual wedge over stock Claude review).
 
 ---
+## 2026-05-15 09:47 - Strict-mode gate: deterministic comment-grep, not bot-side marker file (v0.3.4 round 2)
+
+**Reasoning:** First implementation had bot write .clud-bug-strict-fail when critical issues found. Reviewer caught: LLM-trust-based, fragile if model forgets/errors. Second implementation greps the actual posted comment for sentinel header — gate is deterministic on the comment content, regardless of bot's flow.
+
+**Alternatives considered:** Marker file (rejected: relies on bot memory); structured JSON output (rejected: requires changing the action)
+
+**Implications:**
+- Bot's review header signals findings: '## 🐛 Clud Bug review — critical findings' triggers the gate. Post-step uses jq with startswith() against latest claude[bot] comment. Manifest read from BASE ref (origin/<base_ref>), not PR head — PRs cannot disable their own gate.
+
+---
