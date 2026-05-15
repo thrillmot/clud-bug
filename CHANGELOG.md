@@ -2,6 +2,11 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] — 2026-05-15
+
+### Changed
+- **No functional changes.** Metadata-only release. The Stream A2 backfill of v0.4.1, v0.5.0, v0.5.1, v0.5.2 via parallel `workflow_dispatch` finished out of order, leaving npm's `latest` dist-tag pinned to v0.5.1 instead of v0.5.2. npm Trusted Publishing currently authenticates `publish` only — `dist-tag` operations need a long-lived token, which we deliberately don't store. Republishing as v0.5.3 lets the standard tag-push → OIDC-publish flow naturally promote the new version to `latest`. The on-disk code is byte-identical to v0.5.2.
+
 ## [0.5.2] — 2026-05-15
 
 ### Changed
@@ -39,6 +44,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.5.3]: https://github.com/thrillmot/clud-bug/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/thrillmot/clud-bug/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/thrillmot/clud-bug/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/thrillmot/clud-bug/compare/v0.4.1...v0.5.0
