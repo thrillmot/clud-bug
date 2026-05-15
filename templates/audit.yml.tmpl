@@ -43,6 +43,18 @@ jobs:
         with:
           node-version: '20'
 
+      # Audit runs on workflow_dispatch / schedule — no PR context, so the
+      # fork-PR carve-out doesn't apply. Just fail loud if the secret is missing.
+      - name: Guard — require ANTHROPIC_API_KEY
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error title=Clud Bug 🐛::ANTHROPIC_API_KEY secret is not set."
+            echo "::error::Set it: Settings → Secrets and variables → Actions → New repository secret."
+            exit 1
+          fi
+
       - name: Compute audit scope and create branch
         id: prep
         env:

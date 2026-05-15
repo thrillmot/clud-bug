@@ -15,6 +15,25 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Without this guard, claude-code-action silently exits 0 when the
+      # secret is missing — the check turns green and the user thinks Clud
+      # Bug is working when it's a no-op. Fail loud unless this is a fork PR
+      # (where GitHub deliberately withholds secrets — that's by design and
+      # documented in the README's "Fork PR caveat" section).
+      - name: Guard — require ANTHROPIC_API_KEY
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then exit 0; fi
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "::warning title=Clud Bug 🐛::Fork PR — GitHub doesn't pass repo secrets to fork-triggered workflows. Clud Bug review skipped by design."
+            exit 0
+          fi
+          echo "::error title=Clud Bug 🐛::ANTHROPIC_API_KEY secret is not set on this repository."
+          echo "::error::Set it: Settings → Secrets and variables → Actions → New repository secret."
+          echo "::error::Without it, Clud Bug review is a silent no-op."
+          exit 1
+
       - uses: anthropics/claude-code-action@v1
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
