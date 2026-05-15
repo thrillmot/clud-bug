@@ -1,0 +1,167 @@
+import { test } from 'node:test';
+import { strict as assert } from 'node:assert';
+import { mkdtemp, writeFile, mkdir, readFile, rm, stat } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
+import { applyToRepo, renderBlock, upsertBlock } from '../lib/agents-md.js';
+
+async function makeRepo(files = {}) {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-agents-md-'));
+  for (const [path, content] of Object.entries(files)) {
+    const full = join(dir, path);
+    await mkdir(dirname(full), { recursive: true });
+    await writeFile(full, content);
+  }
+  return dir;
+}
+
+async function exists(p) { try { await stat(p); return true; } catch { return false; } }
+
+test('renderBlock: includes start/end markers and strict-mode line', () => {
+  const block = renderBlock({ version: '0.5.1', strictMode: true });
+  assert.match(block, /<!-- clud-bug-start -->/);
+  assert.match(block, /<!-- clud-bug-end -->/);
+  assert.match(block, /Strict mode is \*\*on\*\*/);
+  assert.match(block, /clud-bug v0\.5\.1/);
+});
+
+test('renderBlock: strictMode false renders advisory text', () => {
+  const block = renderBlock({ version: '0.5.1', strictMode: false });
+  assert.match(block, /Strict mode is \*\*off\*\*/);
+});
+
+test('upsertBlock: appends when no prior block', () => {
+  const before = '# AGENTS.md\n\nSome content.\n';
+  const block = renderBlock({ strictMode: true });
+  const after = upsertBlock(before, block);
+  assert.match(after, /Some content\./);
+  assert.match(after, /<!-- clud-bug-start -->/);
+  // Single occurrence.
+  assert.equal(after.match(/<!-- clud-bug-start -->/g).length, 1);
+});
+
+test('upsertBlock: replaces existing block in place (idempotent)', () => {
+  const before = '# AGENTS.md\n\nIntro.\n\n<!-- clud-bug-start -->\nold body\n<!-- clud-bug-end -->\n\nFooter.\n';
+  const block = renderBlock({ version: '0.5.1', strictMode: true });
+  const after = upsertBlock(before, block);
+  assert.doesNotMatch(after, /old body/);
+  assert.match(after, /clud-bug v0\.5\.1/);
+  assert.match(after, /Intro\./);
+  assert.match(after, /Footer\./);
+  // Still single occurrence.
+  assert.equal(after.match(/<!-- clud-bug-start -->/g).length, 1);
+});
+
+test('upsertBlock: running twice in a row produces identical output', () => {
+  const block = renderBlock({ version: '0.5.1', strictMode: true });
+  const once = upsertBlock('# AGENTS.md\n', block);
+  const twice = upsertBlock(once, block);
+  assert.equal(once, twice);
+});
+
+test('applyToRepo: creates AGENTS.md when missing, no other files', async () => {
+  const dir = await makeRepo({});
+  try {
+    const r = await applyToRepo(dir, { version: '0.5.1', strictMode: true });
+    assert.deepEqual(r.created, ['AGENTS.md']);
+    assert.deepEqual(r.touched, []);
+    const agents = await readFile(join(dir, 'AGENTS.md'), 'utf8');
+    assert.match(agents, /<!-- clud-bug-start -->/);
+    assert.match(agents, /clud-bug v0\.5\.1/);
+    // Did not create CLAUDE.md or anything else.
+    assert.equal(await exists(join(dir, 'CLAUDE.md')), false);
+    assert.equal(await exists(join(dir, '.cursorrules')), false);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('applyToRepo: appends to existing AGENTS.md without touching prior content', async () => {
+  const dir = await makeRepo({
+    'AGENTS.md': '# AGENTS.md\n\nLogmind block here.\n\n<!-- logmind-start -->\nlogmind stuff\n<!-- logmind-end -->\n',
+  });
+  try {
+    const r = await applyToRepo(dir, { version: '0.5.1', strictMode: true });
+    assert.deepEqual(r.created, []);
+    assert.deepEqual(r.touched, ['AGENTS.md']);
+    const agents = await readFile(join(dir, 'AGENTS.md'), 'utf8');
+    // Logmind block preserved.
+    assert.match(agents, /<!-- logmind-start -->/);
+    assert.match(agents, /logmind stuff/);
+    // Clud-bug block added.
+    assert.match(agents, /<!-- clud-bug-start -->/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('applyToRepo: updates existing CLAUDE.md, .cursorrules, copilot-instructions.md', async () => {
+  const dir = await makeRepo({
+    'AGENTS.md': '# AGENTS.md\n',
+    'CLAUDE.md': '# CLAUDE\n\nstuff\n',
+    '.cursorrules': 'cursor rules\n',
+    '.github/copilot-instructions.md': '# Copilot\n',
+  });
+  try {
+    const r = await applyToRepo(dir, { version: '0.5.1', strictMode: false });
+    assert.deepEqual(r.created.sort(), []);
+    assert.deepEqual(
+      r.touched.sort(),
+      ['.cursorrules', '.github/copilot-instructions.md', 'AGENTS.md', 'CLAUDE.md'],
+    );
+    const claude = await readFile(join(dir, 'CLAUDE.md'), 'utf8');
+    assert.match(claude, /<!-- clud-bug-start -->/);
+    assert.match(claude, /Strict mode is \*\*off\*\*/);
+    assert.match(claude, /^# CLAUDE/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('applyToRepo: idempotent — second run is a no-op', async () => {
+  const dir = await makeRepo({
+    'CLAUDE.md': '# CLAUDE\n',
+  });
+  try {
+    await applyToRepo(dir, { version: '0.5.1', strictMode: true });
+    const after1 = await readFile(join(dir, 'CLAUDE.md'), 'utf8');
+    const r2 = await applyToRepo(dir, { version: '0.5.1', strictMode: true });
+    const after2 = await readFile(join(dir, 'CLAUDE.md'), 'utf8');
+    assert.equal(after1, after2, 'second run should produce identical content');
+    assert.deepEqual(r2.created, []);
+    // The second run still reports CLAUDE.md and AGENTS.md as touched targets,
+    // but content is unchanged on disk — what matters here is byte-equality.
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('applyToRepo: re-running with new version replaces the prior block', async () => {
+  const dir = await makeRepo({});
+  try {
+    await applyToRepo(dir, { version: '0.5.0', strictMode: true });
+    await applyToRepo(dir, { version: '0.5.1', strictMode: true });
+    const agents = await readFile(join(dir, 'AGENTS.md'), 'utf8');
+    assert.equal(agents.match(/<!-- clud-bug-start -->/g).length, 1, 'one block, not two');
+    assert.match(agents, /clud-bug v0\.5\.1/);
+    assert.doesNotMatch(agents, /clud-bug v0\.5\.0/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('applyToRepo: walks .cursor/rules/*.md', async () => {
+  const dir = await makeRepo({
+    '.cursor/rules/general.md': '# general\n',
+    '.cursor/rules/typescript.md': '# ts\n',
+    '.cursor/rules/skip.txt': 'not markdown',
+  });
+  try {
+    const r = await applyToRepo(dir, { strictMode: true });
+    assert.ok(r.touched.includes('.cursor/rules/general.md'));
+    assert.ok(r.touched.includes('.cursor/rules/typescript.md'));
+    assert.ok(!r.touched.some((p) => p.endsWith('skip.txt')));
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('applyToRepo: does not create CLAUDE.md or other tool files when absent', async () => {
+  const dir = await makeRepo({});
+  try {
+    await applyToRepo(dir, { strictMode: true });
+    assert.equal(await exists(join(dir, 'AGENTS.md')), true, 'AGENTS.md is the canonical home — created');
+    assert.equal(await exists(join(dir, 'CLAUDE.md')), false);
+    assert.equal(await exists(join(dir, 'GEMINI.md')), false);
+    assert.equal(await exists(join(dir, '.cursorrules')), false);
+    assert.equal(await exists(join(dir, '.windsurfrules')), false);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

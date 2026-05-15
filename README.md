@@ -28,12 +28,14 @@ The naturalist arrives at your repo, surveys the habitat, and assembles a field 
 
 1. **Surveys habitat.** Reads `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, etc., to learn what your stack is.
 2. **Consults [skills.sh](https://skills.sh).** Pulls review skills relevant to your dependencies (e.g. a Next.js project gets Next.js review specimens).
-3. **Pins three baseline specimens** that enforce review discipline regardless of stack:
+3. **Pins baseline specimens** that enforce review discipline regardless of stack:
    - `critical-issues-only` — flag bugs, security, perf only. Skip nits.
    - `evidence-based-review` — every claim must quote the line being criticized.
    - `respect-existing-conventions` — don't suggest fights with the codebase's patterns.
+   - `clud-bug-collaboration` — guidance for any other Claude Code agents working in your repo: how to coexist with bot review threads, how to read the gate, why workflow self-mods break the action, etc.
 4. **Writes** the chosen specimens to `.claude/skills/<name>/SKILL.md` (Claude Code auto-loads them in the GitHub Action).
 5. **Drafts the field kit** at `.github/workflows/clud-bug-review.yml` with your project description filled in and the right permissions/tool allowlist for `gh pr comment` to actually post.
+6. **Briefs other agents** by adding a `<!-- clud-bug-start -->` block to `AGENTS.md` (creating it if missing — it's the cross-tool canonical), and idempotently to `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.continuerules`, and `.cursor/rules/*.md` where they already exist. Re-runs replace the prior block in place. Files you didn't already have are left uncreated — no proliferating stubs.
 
 ## CLI options
 

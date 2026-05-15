@@ -2,6 +2,13 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] — 2026-05-15
+
+### Added
+- **`clud-bug init` now briefs other agents.** A self-contained `<!-- clud-bug-start -->` block (mirroring the well-established logmind pattern) is added to `AGENTS.md` (created if missing — it's the canonical cross-tool home) and idempotently appended to `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.continuerules`, and any `.md` files under `.cursor/rules/` — but only where those files already exist (no proliferating stubs the user didn't ask for). The block documents how to coexist with the bot's review threads, where the skills live, the strict-mode toggle, and the workflow-self-mod gotcha. Re-runs replace the prior block in place; running with a new clud-bug version updates it.
+- **New baseline skill `clud-bug-collaboration`.** Higher-fidelity guidance for Claude Code agents working in a clud-bug-installed repo: when to defer to bot thread resolution, how to read the `clud-bug-review` check status, why `claude-code-action` rejects PRs that modify its own workflow, how to disable strict mode safely (read from base ref so a PR can't disable on itself). Ships in the baseline kit alongside the existing three; canonical home will be `thrillmot/agent-skills/skills/clud-bug-collaboration/SKILL.md` on the next agent-skills SHA bump.
+- `clud-bug update` also refreshes the AGENTS.md / CLAUDE.md block so the embedded version + strict-mode line stay current after subsequent updates.
+
 ## [0.5.0] — 2026-05-15
 
 ### Changed
@@ -27,6 +34,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.5.1]: https://github.com/thrillmot/clud-bug/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/thrillmot/clud-bug/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/thrillmot/clud-bug/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/thrillmot/clud-bug/compare/v0.3.4...v0.4.0

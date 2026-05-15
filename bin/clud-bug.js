@@ -15,6 +15,7 @@ import {
 import { computeAuditFileSet, renderAuditHeader } from '../lib/audit.js';
 import { runUpdate } from '../lib/update.js';
 import { getPendingWorkflowEdits, makeBranchName, git as gitCmd } from '../lib/edit-workflow.js';
+import { applyToRepo as applyAgentDocs } from '../lib/agents-md.js';
 
 const PKG_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TEMPLATES = join(PKG_ROOT, 'templates');
@@ -204,9 +205,30 @@ async function runInit(args) {
   }
   await writeManifest(skillsDirPath, manifest);
 
+  // Tell other agents what's installed and how to coexist with the bot.
+  // Idempotent — re-runs replace the prior block in place. AGENTS.md is the
+  // canonical home (cross-tool); CLAUDE.md / GEMINI.md / Cursor / Windsurf
+  // / Cline / Continue rules files get the same block appended IF they
+  // already exist (we don't proliferate stubs the user didn't ask for).
+  log('  briefing other agents (AGENTS.md / CLAUDE.md)...');
+  const agentDocs = await applyAgentDocs(cwd, {
+    version: manifest.lastUpdateVersion,
+    strictMode: manifest.strictMode !== false,
+  });
+  for (const p of agentDocs.created) log(`    created ${p}`);
+  for (const p of agentDocs.touched) log(`    updated ${p}`);
+
   if (args.commit) {
     log('  committing...');
-    spawnSync('git', ['add', '.claude', '.github/workflows/clud-bug-review.yml', '.github/workflows/clud-bug-audit.yml', '.github/workflows/clud-bug-self-update.yml'], { cwd, stdio: 'inherit' });
+    const toAdd = [
+      '.claude',
+      '.github/workflows/clud-bug-review.yml',
+      '.github/workflows/clud-bug-audit.yml',
+      '.github/workflows/clud-bug-self-update.yml',
+      ...agentDocs.created,
+      ...agentDocs.touched,
+    ];
+    spawnSync('git', ['add', ...toAdd], { cwd, stdio: 'inherit' });
     spawnSync('git', ['commit', '-m', 'Add clud-bug 🐛 — a field guide to specimens crawling your code'], { cwd, stdio: 'inherit' });
   }
 
