@@ -407,12 +407,27 @@ async function runEditWorkflow(_args) {
 
   log('🐛 Preparing an isolated PR for your workflow edit.');
   const branch = makeBranchName();
-  log(`  branch: ${branch}`);
+  log(`  branch: ${branch} (rooted at origin/main)`);
   for (const f of pending.files) log(`    • ${f}`);
 
-  // Branch from current ref (whatever the user was on — usually main),
-  // commit the workflow files only, push, open PR.
-  gitCmd(cwd, ['checkout', '-b', branch]);
+  // Stash the pending workflow changes, branch from origin/main explicitly
+  // (NOT from HEAD — if the user is on a feature branch with unrelated
+  // commits, those would otherwise leak into the "isolated" PR), then
+  // restore the changes onto the new branch and commit.
+  gitCmd(cwd, ['stash', 'push', '--include-untracked', '-m', 'clud-bug edit-workflow']);
+  try {
+    gitCmd(cwd, ['fetch', 'origin', 'main', '--depth=1']);
+    gitCmd(cwd, ['checkout', '-b', branch, 'origin/main']);
+  } catch (err) {
+    // Restore the user's stash before bubbling up.
+    gitCmd(cwd, ['stash', 'pop'], { allowFail: true });
+    throw err;
+  }
+  const popped = gitCmd(cwd, ['stash', 'pop'], { allowFail: true });
+  if (!popped.ok) {
+    process.stderr.write(`clud-bug edit-workflow: stash pop conflicted on origin/main — your edits are still in 'git stash'. Resolve manually:\n  git stash pop\n`);
+    process.exit(1);
+  }
   gitCmd(cwd, ['add', ...pending.files]);
   gitCmd(cwd, ['commit', '-m', 'Edit clud-bug workflow']);
   gitCmd(cwd, ['push', '-u', 'origin', branch]);
