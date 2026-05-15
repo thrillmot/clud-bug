@@ -10,7 +10,7 @@ import { detect, buildDescriptionLine } from '../lib/detect.js';
 import { renderFile, pickTemplate } from '../lib/render.js';
 import {
   SkillsClient, rankAndCap, writeSkills, writeSkill, loadBaseline,
-  readManifest, removeSkill, listInstalled, diffManifest,
+  readManifest, writeManifest, removeSkill, listInstalled, diffManifest,
 } from '../lib/skills.js';
 
 const PKG_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -221,7 +221,6 @@ async function runAdd(args) {
   const entry = await writeSkill(skillsDir, { source, name, kind: 'remote' }, client);
   const manifest = await readManifest(skillsDir);
   const merged = { version: 1, installed: [...manifest.installed.filter(e => e.slug !== entry.slug), entry] };
-  const { writeManifest } = await import('../lib/skills.js');
   await writeManifest(skillsDir, merged);
   log(`  ✓ installed ${entry.slug} → .claude/skills/${entry.slug}/SKILL.md`);
   log('  Commit + push to apply on the next PR.');
@@ -256,7 +255,7 @@ async function runRefresh(args) {
   let curated = [];
   let searched = [];
   if (args.offline) {
-    log('  --offline: skipping skills.sh — diff will only show baseline updates');
+    log('  --offline: skipping skills.sh — only baseline additions will be diffed; existing remote skills are preserved');
   } else {
     const client = new SkillsClient();
     let curatedErr, searchedErr;
@@ -274,6 +273,11 @@ async function runRefresh(args) {
   }
   const recommended = rankAndCap(curated, searched, baseline);
   const diff = diffManifest(manifest, recommended);
+
+  // In --offline mode the recommendation set isn't authoritative (we only have
+  // baseline locally), so any "missing from recommendations" entry is a false
+  // positive. Suppress removals to avoid mass-deleting the user's remote skills.
+  if (args.offline) diff.remove = [];
 
   log('');
   log(`  add:       ${diff.add.length}`);

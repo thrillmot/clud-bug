@@ -146,6 +146,29 @@ test('refresh aborts (does NOT remove remote skills) when skills.sh is unreachab
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
+test('refresh --offline --accept-all does NOT remove remote skills from manifest', async () => {
+  const dir = await makeRepo({ 'package.json': '{}' });
+  try {
+    // Pre-existing manifest with a remote skill (simulates a previous successful add).
+    await mkdir(join(dir, '.claude/skills/keep-me'), { recursive: true });
+    await writeFile(join(dir, '.claude/skills/keep-me/SKILL.md'), '---\nname: keep-me\n---');
+    await writeFile(
+      join(dir, '.claude/skills/.clud-bug.json'),
+      JSON.stringify({ version: 1, installed: [
+        { slug: 'keep-me', source: 'foo', name: 'keep-me', kind: 'remote' },
+      ]}, null, 2),
+    );
+    const r = run(dir, ['refresh', '--offline', '--accept-all']);
+    assert.equal(r.status, 0, r.stderr);
+    // Remote skill must still exist on disk
+    const stillThere = await readFile(join(dir, '.claude/skills/keep-me/SKILL.md'), 'utf8');
+    assert.match(stillThere, /keep-me/);
+    // And still in the manifest
+    const manifest = JSON.parse(await readFile(join(dir, '.claude/skills/.clud-bug.json'), 'utf8'));
+    assert.ok(manifest.installed.some(e => e.slug === 'keep-me'));
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('refresh --offline shows no-op when only baseline installed', async () => {
   const dir = await makeRepo({ 'package.json': '{}' });
   try {
