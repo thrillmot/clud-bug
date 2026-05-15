@@ -113,6 +113,10 @@ test('writeSkills creates SKILL.md per skill in nested directory', async () => {
   }
 });
 
+// Tests pass cacheDir: null + a stub fetch so they don't touch the user's
+// real cache dir or hit the live agent-skills repo.
+const offlineOpts = { cacheDir: null, fetch: async () => { throw new Error('test: no network'); } };
+
 test('loadBaseline reads .md files from a directory', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'clud-bug-baseline-'));
   try {
@@ -120,17 +124,107 @@ test('loadBaseline reads .md files from a directory', async () => {
     await writeFile(join(dir, 'a.md'), 'A');
     await writeFile(join(dir, 'b.md'), 'B');
     await writeFile(join(dir, 'ignore.txt'), 'no');
-    const out = await loadBaseline(dir);
+    const out = await loadBaseline(dir, offlineOpts);
     assert.equal(out.length, 2);
     assert.deepEqual(out.map(s => s.name).sort(), ['a', 'b']);
+    // Stub fetch threw → all should report _source: 'bundled'
+    assert.ok(out.every((s) => s._source === 'bundled'));
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 });
 
 test('loadBaseline returns empty if directory missing', async () => {
-  const out = await loadBaseline('/tmp/clud-bug-does-not-exist-' + Date.now());
+  const out = await loadBaseline('/tmp/clud-bug-does-not-exist-' + Date.now(), offlineOpts);
   assert.deepEqual(out, []);
+});
+
+test('loadBaseline: prefers remote (agent-skills) when fetch succeeds', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-baseline-fetch-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(join(dir, 'critical-issues-only.md'), 'BUNDLED CONTENT');
+
+    let fetchedUrl;
+    const fetch = async (url) => {
+      fetchedUrl = url;
+      return { ok: true, status: 200, text: async () => 'REMOTE CONTENT' };
+    };
+    const out = await loadBaseline(dir, { cacheDir: null, fetch });
+    assert.equal(out.length, 1);
+    assert.equal(out[0].content, 'REMOTE CONTENT');
+    assert.equal(out[0]._source, 'agent-skills');
+    assert.match(fetchedUrl, /thrillmot\/agent-skills\/main\/skills\/critical-issues-only\/SKILL\.md/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadBaseline: falls back to bundled on 404', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-baseline-404-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(join(dir, 'x.md'), 'BUNDLED FALLBACK');
+    const fetch = async () => ({ ok: false, status: 404, text: async () => '' });
+    const out = await loadBaseline(dir, { cacheDir: null, fetch });
+    assert.equal(out[0].content, 'BUNDLED FALLBACK');
+    assert.equal(out[0]._source, 'bundled');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadBaseline: falls back to bundled on network error', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-baseline-neterr-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(join(dir, 'y.md'), 'BUNDLED ON ERROR');
+    const fetch = async () => { throw new Error('ENOTFOUND'); };
+    const out = await loadBaseline(dir, { cacheDir: null, fetch });
+    assert.equal(out[0].content, 'BUNDLED ON ERROR');
+    assert.equal(out[0]._source, 'bundled');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadBaseline: falls back to bundled on empty remote body', async () => {
+  // A 200 with empty body shouldn't be treated as a valid skill.
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-baseline-empty-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(join(dir, 'z.md'), 'BUNDLED ON EMPTY');
+    const fetch = async () => ({ ok: true, status: 200, text: async () => '' });
+    const out = await loadBaseline(dir, { cacheDir: null, fetch });
+    assert.equal(out[0].content, 'BUNDLED ON EMPTY');
+    assert.equal(out[0]._source, 'bundled');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadBaseline: cache hit avoids network on second call', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-baseline-cache-src-'));
+  const cache = await mkdtemp(join(tmpdir(), 'clud-bug-baseline-cache-dst-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(join(dir, 'cached.md'), 'BUNDLED');
+    let fetchCount = 0;
+    const fetch = async () => {
+      fetchCount++;
+      return { ok: true, status: 200, text: async () => 'REMOTE-VIA-CACHE' };
+    };
+    // First call: warms the cache.
+    await loadBaseline(dir, { cacheDir: cache, fetch });
+    assert.equal(fetchCount, 1);
+    // Second call: should hit the cache, not the network.
+    const out = await loadBaseline(dir, { cacheDir: cache, fetch });
+    assert.equal(fetchCount, 1, 'second call must not fetch');
+    assert.equal(out[0].content, 'REMOTE-VIA-CACHE');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+    await rm(cache, { recursive: true, force: true });
+  }
 });
 
 test('sanitizeSlug normalizes names safely', () => {

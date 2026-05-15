@@ -2,6 +2,12 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-05-15
+
+### Changed
+- **Baseline skills now sourced from [thrillmot/agent-skills](https://github.com/thrillmot/agent-skills) at install time.** `clud-bug init` fetches `https://raw.githubusercontent.com/thrillmot/agent-skills/main/skills/<name>/SKILL.md` for each baseline (`critical-issues-only`, `evidence-based-review`, `respect-existing-conventions`). Fetched skills are cached at `~/.cache/clud-bug/skills/` for 24h to avoid re-fetching across CLI invocations. Network failures, 404s, or empty bodies fall back to the bundled copy shipped in the npm package — works fully offline. Init log shows which path was used (`baseline kit: 3 specimens (from thrillmot/agent-skills)` vs `(bundled fallback)`).
+- Override the upstream URL via `CLUD_BUG_AGENT_SKILLS_BASE` env var (test seam).
+
 ## [0.4.1] — 2026-05-15
 
 ### Added
@@ -17,6 +23,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.5.0]: https://github.com/thrillmot/clud-bug/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/thrillmot/clud-bug/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/thrillmot/clud-bug/compare/v0.3.4...v0.4.0
 
