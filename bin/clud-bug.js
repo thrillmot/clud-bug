@@ -143,6 +143,14 @@ async function runInit(args) {
   const written = await writeSkills(join(cwd, '.claude', 'skills'), chosen, client);
   log(`    pinned ${written.length} specimens`);
 
+  // Empty-skills warning: clud-bug shines when paired with project-specific
+  // skills. Reviews that load only the three baselines are functional but
+  // generic; flag this so users notice.
+  const remoteCount = written.filter((w) => w.kind !== 'baseline').length;
+  if (remoteCount === 0) {
+    warn('Only baseline specimens pinned. Add project-specific skills via `clud-bug add vercel-labs/skills/<name>` or drop your own `.claude/skills/<name>/SKILL.md`.');
+  }
+
   log('  drafting field kit...');
   const tmplName = pickTemplate(signals.languages);
   const tmplPath = join(TEMPLATES, tmplName);
