@@ -42,6 +42,19 @@ npx clud-bug init [options]
   --help,-h       Show help.
 ```
 
+## Managing skills
+
+After `init`, four commands let you evolve the skill set without re-running the whole setup:
+
+```bash
+clud-bug list                                       # show what's installed
+clud-bug add vercel-labs/skills/next-best-practices # install one from skills.sh
+clud-bug remove next-best-practices                 # uninstall (refuses custom skills)
+clud-bug refresh                                    # re-query skills.sh, diff vs installed
+```
+
+Skills are tracked in `.claude/skills/.clud-bug.json` (a small manifest). Anything in `.claude/skills/` that *isn't* in the manifest is treated as your custom work and never modified by `clud-bug` commands.
+
 ## Adding your own skills
 
 Drop any `.md` file into `.claude/skills/<your-skill>/SKILL.md` — Claude Code auto-discovers it on the next PR. Same format as skills from skills.sh:

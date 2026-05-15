@@ -1,9 +1,14 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { SkillsClient, rankAndCap, writeSkills, loadBaseline, _internal } from '../lib/skills.js';
+import {
+  SkillsClient, rankAndCap, writeSkills, loadBaseline,
+  readManifest, writeManifest, mergeManifest,
+  removeSkill, listInstalled, diffManifest,
+  _internal,
+} from '../lib/skills.js';
 
 function mockFetch(routes) {
   return async (url) => {
@@ -131,4 +136,127 @@ test('loadBaseline returns empty if directory missing', async () => {
 test('sanitizeSlug normalizes names safely', () => {
   assert.equal(_internal.sanitizeSlug('Foo Bar!'), 'foo-bar');
   assert.equal(_internal.sanitizeSlug('--Already-OK--'), 'already-ok');
+});
+
+test('writeSkills creates a manifest tracking what it installed', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-manifest-'));
+  try {
+    const client = new SkillsClient({
+      fetch: mockFetch({ '/skills/foo/bar': { content: 'remote body' } }),
+    });
+    await writeSkills(dir, [
+      { source: 'foo', name: 'bar', kind: 'remote' },
+      { source: 'clud-bug-baseline', name: 'baseline-skill', kind: 'baseline', content: 'b' },
+    ], client);
+    const manifest = await readManifest(dir);
+    assert.equal(manifest.installed.length, 2);
+    const baseline = manifest.installed.find(e => e.kind === 'baseline');
+    const remote = manifest.installed.find(e => e.kind === 'remote');
+    assert.equal(baseline.slug, 'baseline-skill');
+    assert.equal(remote.slug, 'bar');
+    assert.equal(remote.source, 'foo');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('readManifest returns empty when file missing', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-empty-'));
+  try {
+    const m = await readManifest(dir);
+    assert.equal(m.installed.length, 0);
+    assert.equal(m.version, 1);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('mergeManifest replaces by key, never duplicates', () => {
+  const existing = { installed: [
+    { slug: 'a', source: 'x', name: 'a', kind: 'remote' },
+    { slug: 'baseline-thing', kind: 'baseline' },
+  ]};
+  const merged = mergeManifest(existing, [
+    { slug: 'a', source: 'x', name: 'a', kind: 'remote', description: 'updated' },
+    { slug: 'b', source: 'y', name: 'b', kind: 'remote' },
+  ]);
+  assert.equal(merged.installed.length, 3);
+  assert.equal(merged.installed.find(e => e.slug === 'a').description, 'updated');
+});
+
+test('writeSkills called twice merges manifests instead of overwriting', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-merge-'));
+  try {
+    const client = new SkillsClient({ fetch: mockFetch({
+      '/skills/a/x': { content: 'A' },
+      '/skills/b/y': { content: 'B' },
+    })});
+    await writeSkills(dir, [{ source: 'a', name: 'x', kind: 'remote' }], client);
+    await writeSkills(dir, [{ source: 'b', name: 'y', kind: 'remote' }], client);
+    const m = await readManifest(dir);
+    const slugs = m.installed.map(e => e.slug).sort();
+    assert.deepEqual(slugs, ['x', 'y']);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('removeSkill deletes dir and manifest entry; refuses non-managed slug', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-remove-'));
+  try {
+    const client = new SkillsClient({ fetch: mockFetch({ '/skills/x/y': { content: 'C' } })});
+    await writeSkills(dir, [{ source: 'x', name: 'y', kind: 'remote' }], client);
+    await removeSkill(dir, 'y');
+    const m = await readManifest(dir);
+    assert.equal(m.installed.length, 0);
+    await assert.rejects(removeSkill(dir, 'never-installed'), /not in the clud-bug manifest/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('listInstalled groups baseline / remote / custom correctly', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-list-'));
+  try {
+    const client = new SkillsClient({ fetch: mockFetch({ '/skills/foo/bar': { content: 'r' } })});
+    await writeSkills(dir, [
+      { source: 'foo', name: 'bar', kind: 'remote', description: 'remote desc' },
+      { source: 'clud-bug-baseline', name: 'discipline', kind: 'baseline', content: '---\nname: discipline\ndescription: rules\n---', description: '(bundled baseline)' },
+    ], client);
+    // hand-author a custom skill
+    const customDir = join(dir, 'my-custom');
+    await mkdir(customDir, { recursive: true });
+    await writeFile(join(customDir, 'SKILL.md'), '---\nname: my-custom\ndescription: my team rules\n---\n# rules');
+
+    const groups = await listInstalled(dir);
+    assert.equal(groups.baseline.length, 1);
+    assert.equal(groups.remote.length, 1);
+    assert.equal(groups.custom.length, 1);
+    assert.equal(groups.custom[0].slug, 'my-custom');
+    assert.equal(groups.custom[0].description, 'my team rules');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('diffManifest produces add/remove/unchanged buckets and ignores baseline removal', () => {
+  const manifest = { installed: [
+    { slug: 'a', source: 'x', name: 'a', kind: 'remote' },
+    { slug: 'b', source: 'y', name: 'b', kind: 'remote' },
+    { slug: 'baseline-1', kind: 'baseline' },
+  ]};
+  const recommended = [
+    { source: 'x', name: 'a', kind: 'remote' },     // unchanged
+    { source: 'z', name: 'c', kind: 'remote' },     // new add
+  ];
+  const diff = diffManifest(manifest, recommended);
+  assert.equal(diff.unchanged.length, 1);
+  assert.equal(diff.add.length, 1);
+  assert.equal(diff.add[0].name, 'c');
+  assert.equal(diff.remove.length, 1);
+  assert.equal(diff.remove[0].slug, 'b');  // baseline-1 not removed
+});
+
+test('writeSkill (single) writes one SKILL.md without touching manifest', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-single-'));
+  try {
+    const client = new SkillsClient({ fetch: mockFetch({ '/skills/p/q': { content: 'single' } })});
+    const { writeSkill } = await import('../lib/skills.js');
+    const entry = await writeSkill(dir, { source: 'p', name: 'q', kind: 'remote' }, client);
+    assert.equal(entry.slug, 'q');
+    assert.equal(await readFile(join(dir, 'q', 'SKILL.md'), 'utf8'), 'single');
+    // No manifest written by writeSkill alone
+    const m = await readManifest(dir);
+    assert.equal(m.installed.length, 0);
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });
