@@ -20,3 +20,13 @@
 - Bumping baseline skill content requires a clud-bug release that updates BASELINE_SKILLS_REF. Bundled fallback covers offline / 404 / network-error / 5s-timeout / empty-body. Per-user cache at ~/.cache/clud-bug/skills/ keyed by base+name (no cross-base poisoning). Init log surfaces source.
 
 ---
+## 2026-05-15 11:34 - Strict mode default for new installs (v0.4.0) gated on lastUpdate, not strictMode-undefined
+
+**Reasoning:** Initial fix for strict-default flipped existing v0.3 advisory installs whose strictMode was never written. Reviewer caught: existing manifests already had lastUpdate set by init/update, so isFreshInstall = (manifest.lastUpdate === undefined) is the correct gate. Only truly fresh inits get strictMode: true; existing installs preserved.
+
+**Alternatives considered:** Always set strictMode=true regardless; require explicit --strict flag at init time
+
+**Implications:**
+- Existing v0.3.x advisory installs keep advisory behavior on re-init. Self-update workflow PR body announces the new default for repos that want to upgrade. Three regression tests in test/cli.test.js lock the contract.
+
+---
