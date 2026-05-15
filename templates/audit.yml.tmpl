@@ -50,7 +50,9 @@ jobs:
           SCOPE: ${{ inputs.scope }}
         run: |
           DATE=$(date -u +%Y-%m-%d)
-          BRANCH="clud-bug/audit-$DATE"
+          # Add a run-number suffix so same-day re-runs don't collide on the
+          # remote branch (push would otherwise be rejected as non-fast-forward).
+          BRANCH="clud-bug/audit-${DATE}-${{ github.run_number }}"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
 
@@ -66,14 +68,17 @@ jobs:
 
           if [ ! -f "audits/$DATE.md" ]; then
             echo "::warning::clud-bug audit produced no stub file — nothing in scope."
+            echo "stub_written=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           git add audits/
           git commit -m "🐛 Clud Bug audit — $DATE (stub)"
           git push -u origin "$BRANCH"
+          echo "stub_written=true" >> "$GITHUB_OUTPUT"
 
       - uses: anthropics/claude-code-action@v1
+        if: steps.prep.outputs.stub_written == 'true'
         env:
           AUDIT_DATE: ${{ steps.prep.outputs.date }}
           AUDIT_BRANCH: ${{ steps.prep.outputs.branch }}

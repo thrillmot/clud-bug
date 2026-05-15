@@ -85,18 +85,48 @@ test('computeAuditFileSet: scope glob narrows the file set', async () => {
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('computeAuditFileSet: changed-in window restricts to recent commits', async () => {
-  const dir = await makeRepo({ 'old.ts': 'old' });
+test('computeAuditFileSet: changed-in window actually filters by date', async () => {
+  // Backdate the initial commit ~30 days ago, then add a file today and
+  // assert that --changed-in 7d returns only the recent file.
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-audit-time-'));
   try {
-    // simulate an old commit by setting an explicit author/committer date
+    spawnSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
+    spawnSync('git', ['config', 'user.email', 'test@test'], { cwd: dir });
+    spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
+    spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir });
+
+    await writeFile(join(dir, 'old.ts'), 'old');
+    spawnSync('git', ['add', 'old.ts'], { cwd: dir });
+    const oldDate = '2026-04-15T12:00:00Z';   // ~30 days before today (2026-05-15)
+    spawnSync('git', ['commit', '-q', '-m', 'old'], {
+      cwd: dir,
+      env: { ...process.env, GIT_AUTHOR_DATE: oldDate, GIT_COMMITTER_DATE: oldDate },
+    });
+
     await writeFile(join(dir, 'recent.ts'), 'fresh');
-    git(dir, 'add', 'recent.ts');
-    git(dir, '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'recent');
+    spawnSync('git', ['add', 'recent.ts'], { cwd: dir });
+    spawnSync('git', ['commit', '-q', '-m', 'recent'], { cwd: dir });
 
     const files = computeAuditFileSet({ cwd: dir, changedIn: '7d' });
-    // Both files were committed today, so both should be included
-    assert.ok(files.includes('recent.ts'));
-    assert.ok(files.includes('old.ts'));
+    assert.ok(files.includes('recent.ts'), 'recent.ts should be in 7d window');
+    assert.ok(!files.includes('old.ts'), 'old.ts should NOT be in 7d window');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('computeAuditFileSet: deleted files do not survive the manifest', async () => {
+  // A file modified within the window and then deleted shouldn't appear in
+  // the manifest (Claude can't audit a path that no longer exists on disk).
+  const dir = await makeRepo({ 'gone.ts': 'gone', 'kept.ts': 'kept' });
+  try {
+    await writeFile(join(dir, 'gone.ts'), 'gone-modified');
+    git(dir, 'add', 'gone.ts');
+    git(dir, 'commit', '-q', '-m', 'modify gone.ts');
+    git(dir, 'rm', 'gone.ts');
+    git(dir, 'commit', '-q', '-m', 'delete gone.ts');
+
+    const files = computeAuditFileSet({ cwd: dir, changedIn: '7d' });
+    assert.ok(!files.includes('gone.ts'), 'deleted file must be excluded');
+    assert.ok(files.includes('kept.ts'));
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
