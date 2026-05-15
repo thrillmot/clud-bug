@@ -256,13 +256,21 @@ async function runRefresh(args) {
   let curated = [];
   let searched = [];
   if (args.offline) {
-    log('  --offline: skipping skills.sh');
+    log('  --offline: skipping skills.sh — diff will only show baseline updates');
   } else {
     const client = new SkillsClient();
+    let curatedErr, searchedErr;
     [curated, searched] = await Promise.all([
-      client.curated().catch(() => []),
-      client.search(signals.searchTerms).catch(() => []),
+      client.curated().catch(err => { curatedErr = err; return []; }),
+      client.search(signals.searchTerms).catch(err => { searchedErr = err; return []; }),
     ]);
+    if (curatedErr || searchedErr) {
+      const err = curatedErr || searchedErr;
+      warn(`skills.sh unreachable (${err.message})`);
+      warn('refusing to compute removals — an empty API response would look like "delete everything from skills.sh".');
+      warn('Try again later, or run with --offline to install only baseline updates.');
+      process.exit(1);
+    }
   }
   const recommended = rankAndCap(curated, searched, baseline);
   const diff = diffManifest(manifest, recommended);

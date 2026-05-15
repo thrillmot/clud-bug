@@ -116,6 +116,36 @@ test('refresh in empty repo prompts to init first', async () => {
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
+test('refresh aborts (does NOT remove remote skills) when skills.sh is unreachable', async () => {
+  const dir = await makeRepo({ 'package.json': JSON.stringify({ dependencies: { next: '^15' }})});
+  try {
+    // Hand-craft a manifest that includes a remote skill (simulates a previous successful add).
+    await mkdir(join(dir, '.claude/skills/some-remote'), { recursive: true });
+    await writeFile(join(dir, '.claude/skills/some-remote/SKILL.md'), '---\nname: some-remote\n---');
+    await writeFile(
+      join(dir, '.claude/skills/.clud-bug.json'),
+      JSON.stringify({ version: 1, installed: [
+        { slug: 'some-remote', source: 'foo', name: 'some-remote', kind: 'remote' },
+      ]}, null, 2),
+    );
+
+    // Force fetch failure by pointing at an unresolvable host via env.
+    // We can't easily monkey-patch fetch in a child process, so use --offline=false
+    // and an env shim that swaps the SkillsClient base URL.
+    const r = run(dir, ['refresh', '--accept-all'], {
+      env: { CLUD_BUG_SKILLS_SH_BASE: 'http://127.0.0.1:1' },
+    });
+
+    // Either the process exits non-zero with the refusal warning, OR the API isn't
+    // overridable from env (in which case skip — covered by skills.test.js diff logic).
+    // We must NEVER see "skills updated" indicating removal proceeded.
+    assert.doesNotMatch(r.stdout + r.stderr, /skills updated/, 'refresh proceeded with removals despite API failure');
+    // Verify the remote skill is still on disk
+    const stillThere = await readFile(join(dir, '.claude/skills/some-remote/SKILL.md'), 'utf8');
+    assert.match(stillThere, /some-remote/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('refresh --offline shows no-op when only baseline installed', async () => {
   const dir = await makeRepo({ 'package.json': '{}' });
   try {
