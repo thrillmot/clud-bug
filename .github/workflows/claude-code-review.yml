@@ -21,6 +21,18 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Guard — require ANTHROPIC_API_KEY
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then exit 0; fi
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "::warning::Fork PR — secrets not passed. Baseline review skipped."
+            exit 0
+          fi
+          echo "::error::ANTHROPIC_API_KEY not set."
+          exit 1
+
       - uses: anthropics/claude-code-action@v1
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}

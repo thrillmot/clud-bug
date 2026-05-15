@@ -2,6 +2,11 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] — 2026-05-15
+
+### Fixed
+- **No more silently-green checks when `ANTHROPIC_API_KEY` is missing.** All review + audit + baseline workflows now have a guard step that fails the job with an actionable `::error::` message when the secret is empty. Fork PRs (where GitHub deliberately withholds secrets) get a `::warning::` and exit 0 — the documented by-design behavior. Eliminates the footgun where users thought Clud Bug was reviewing when it wasn't even running.
+
 ## [0.3.2] — 2026-05-15
 
 ### Changed
@@ -29,6 +34,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Paragraph indent inconsistency on cludbug.dev.** Removed the `text-indent: 1.4em` rule on `.section-prose p + p`.
 - **Bug-pin scuttle animation** snap removed by replacing the 45/47%/90% keyframes with a symmetric 35→65% scuttle.
 
+[0.3.3]: https://github.com/thrillmot/clud-bug/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/thrillmot/clud-bug/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/thrillmot/clud-bug/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/thrillmot/clud-bug/compare/v0.2.2...v0.3.0
