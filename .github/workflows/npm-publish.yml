@@ -80,11 +80,31 @@ jobs:
       # See clud-bug-review.yml for the rationale on this env var.
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
+      - name: Validate dispatch inputs
+        # Guard the workflow_dispatch path. The 'tag' input had to drop
+        # required: true so promote-tag dispatches don't have to fill
+        # it in. Without this check, a stray "publish" dispatch with no
+        # tag would resolve `inputs.tag || github.ref` to github.ref —
+        # which on workflow_dispatch is the BRANCH the dispatch was
+        # fired from (typically main), not a tag. The result would
+        # be a silent main-branch publish instead of a release publish.
+        # Tag-push triggers skip this (event_name == 'push').
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          if [ -z "${TAG_INPUT}" ]; then
+            echo "::error::publish mode via workflow_dispatch requires the 'tag' input (e.g. v0.5.2). Refusing to publish from a branch."
+            exit 1
+          fi
+
       - name: Checkout the tag
         uses: actions/checkout@v5
         with:
           # On tag push, github.ref is refs/tags/vX.Y.Z (correct).
-          # On workflow_dispatch (publish mode), fall back to the input.
+          # On workflow_dispatch (publish mode), inputs.tag is now
+          # required by the guard above, so the fallback to github.ref
+          # never fires here in practice — left for clarity.
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Node + npm registry
