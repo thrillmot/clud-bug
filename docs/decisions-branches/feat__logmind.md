@@ -20,3 +20,13 @@
 - init writes strictMode: true on first install only. Self-update PRs include callout for opt-in. Branch protection required-checks now genuinely block merges. Bot/fork PRs need graceful-degradation guard.
 
 ---
+## 2026-05-15 09:47 - Skill enforcement is hard, not soft (v0.3.2): prompts MUST cite skills by name + reviews end with 'Skills referenced:' footer
+
+**Reasoning:** User probed gap: skills loaded into context but reviews didn't show their influence. Soft 'should defer' nudge wasn't enough leverage. Required citation + footer makes the skill→finding link auditable and forces the bot to actively scan skills before flagging.
+
+**Alternatives considered:** Keep soft nudge; require Skill tool invocation before each review; build a separate skill-attribution UI
+
+**Implications:**
+- Reviews in this repo since v0.3.2 end with 'Skills referenced: [...]'. Empty-skills warning in init steers users toward project-specific skills (the actual wedge over stock Claude review).
+
+---
