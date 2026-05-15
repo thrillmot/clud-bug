@@ -32,8 +32,12 @@ jobs:
                 "$tmpl" > "$out"
           done
       - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.12
         run: |
-          curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash
+          curl -fsSL -o actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          tar -xzf actionlint.tar.gz actionlint
           ./actionlint -version
       - name: Lint templates
         run: ./actionlint .ci-rendered/*.yml
