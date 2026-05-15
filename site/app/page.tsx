@@ -139,13 +139,15 @@ export default function Home() {
           </aside>
           <div>
             <pre className="terminal">
-              <span className="comment"># 1. Detect, install skills, write workflow.</span>{'\n'}
+              <span className="comment"># 1. Survey the habitat, pin specimens, draft the field kit.</span>{'\n'}
               <span className="cmd">npx clud-bug init</span>{'\n'}
-              <span className="out">  baseline skills:  3</span>{'\n'}
-              <span className="out">  installing skills into .claude/skills/...</span>{'\n'}
-              <span className="out">  wrote .github/workflows/clud-bug-review.yml</span>{'\n\n'}
+              <span className="out">  🐛 Field season opens in <span className="path">~/your-repo</span>.</span>{'\n'}
+              <span className="out">    baseline kit:     <span className="num">3</span> specimens</span>{'\n'}
+              <span className="out">  pinning specimens to <span className="path">.claude/skills/</span>...</span>{'\n'}
+              <span className="out">    pinned <span className="num">3</span> specimens</span>{'\n'}
+              <span className="out">  wrote <span className="path">.github/workflows/clud-bug-review.yml</span></span>{'\n\n'}
               <span className="comment"># 2. Commit the field kit and push.</span>{'\n'}
-              <span className="cmd">git add .claude .github/workflows/clud-bug-review.yml</span>{'\n'}
+              <span className="cmd">git add <span className="path">.claude .github/workflows/clud-bug-review.yml</span></span>{'\n'}
               <span className="cmd">git commit -m &quot;Add clud-bug&quot; && git push</span>{'\n'}
             </pre>
           </div>
