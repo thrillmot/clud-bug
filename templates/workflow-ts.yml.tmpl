@@ -14,6 +14,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # strict-mode gate reads base ref's manifest
 
       # Without this guard, claude-code-action silently exits 0 when the
       # secret is missing — the check turns green and the user thinks Clud
@@ -121,19 +123,22 @@ jobs:
             with confirmed: true.
             If there are no critical issues, post a one-line comment saying so.
 
-      # Strict-mode gate — see workflow.yml.tmpl for design notes.
+      # Strict-mode gate — see workflow.yml.tmpl for full design notes.
       - name: Strict mode — fail check on critical findings
-        if: always()
+        if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          BASE_MANIFEST=$(git show "origin/${{ github.base_ref }}:.claude/skills/.clud-bug.json" 2>/dev/null || echo '{}')
+          BASE_MANIFEST=$(git show "origin/${{ github.base_ref }}:.claude/skills/.clud-bug.json" 2>&1) || {
+            echo "::warning::Base manifest not found on ${{ github.base_ref }} — strict mode disabled for this run."
+            exit 0
+          }
           STRICT=$(echo "$BASE_MANIFEST" | node -e "let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',()=>{try{console.log(JSON.parse(s).strictMode===true)}catch(e){console.log('false')}})")
           [ "$STRICT" = "true" ] || exit 0
           LATEST=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments?sort=created&direction=desc&per_page=100" \
-            --jq '[.[] | select(.user.login == "claude[bot]" and (.body | test("## 🐛 Clud Bug review")))][0].body // ""')
-          if echo "$LATEST" | grep -q "Clud Bug review — critical findings"; then
+            --jq '[.[] | select(.user.login == "claude[bot]" and (.body | startswith("## 🐛 Clud Bug review")))][0].body // ""')
+          if echo "$LATEST" | head -n1 | grep -q "Clud Bug review — critical findings"; then
             echo "::error title=Clud Bug 🐛::Critical issues found and strictMode is enabled — failing this check."
             echo "::error::See the latest Clud Bug review comment for details. Push a fix and the gate will clear on the next run."
             exit 1
