@@ -1,11 +1,11 @@
 # Clud Bug 🐛
-### Crawling all over your code
+### A field guide to specimens crawling your code
 
-> **[cludbug.dev](https://cludbug.dev)** · A field guide.
+> **[cludbug.dev](https://cludbug.dev)** · live field journal.
 
-Claude PR review for any GitHub repo, with **project-aware skills** auto-discovered from [skills.sh](https://skills.sh) and a baseline of review-discipline skills bundled in.
+Clud Bug is a Claude PR-review naturalist for your GitHub repo. It pins **project-aware skills** auto-discovered from [skills.sh](https://skills.sh) and ships a baseline kit of review discipline so reviews stay focused on what matters: bugs, security, performance, and missing tests.
 
-One command to install. The first PR you open afterwards gets a real review comment back.
+One command to install. The first PR you open afterwards gets a real review comment back — typically within two minutes.
 
 ## Quickstart
 
@@ -24,14 +24,16 @@ Open a PR. A review comment should appear within ~2 minutes.
 
 ## What `clud-bug init` does
 
-1. **Detects** your stack (Node, Python, Go, Rust, Ruby — reads `package.json`, `pyproject.toml`, `go.mod`, etc.).
-2. **Queries [skills.sh](https://skills.sh)** for review skills relevant to your dependencies (e.g. a Next.js project gets Next.js review skills).
-3. **Installs three baseline skills** that enforce review discipline regardless of stack:
+The naturalist arrives at your repo, surveys the habitat, and assembles a field kit:
+
+1. **Surveys habitat.** Reads `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, etc., to learn what your stack is.
+2. **Consults [skills.sh](https://skills.sh).** Pulls review skills relevant to your dependencies (e.g. a Next.js project gets Next.js review specimens).
+3. **Pins three baseline specimens** that enforce review discipline regardless of stack:
    - `critical-issues-only` — flag bugs, security, perf only. Skip nits.
    - `evidence-based-review` — every claim must quote the line being criticized.
    - `respect-existing-conventions` — don't suggest fights with the codebase's patterns.
-4. **Writes** the chosen skills to `.claude/skills/<name>/SKILL.md` (Claude Code auto-loads them in the GitHub Action).
-5. **Generates** `.github/workflows/clud-bug-review.yml` with the project description filled in and the right permissions/tool allowlist for `gh pr comment` to actually work.
+4. **Writes** the chosen specimens to `.claude/skills/<name>/SKILL.md` (Claude Code auto-loads them in the GitHub Action).
+5. **Drafts the field kit** at `.github/workflows/clud-bug-review.yml` with your project description filled in and the right permissions/tool allowlist for `gh pr comment` to actually post.
 
 ## CLI options
 

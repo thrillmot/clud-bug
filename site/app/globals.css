@@ -9,10 +9,16 @@
   --ink-soft: #6b5a40;
   --ink-faint: #7e6840;  /* darkened from #a99576 for WCAG AA contrast on cream paper */
 
-  /* Accents — only two, used sparingly */
-  --crimson: #8a1f1f;
+  /* Accents — palette taken from the clud-bug emoji itself
+     (green caterpillar, orange head, on warm cream).
+     --leaf is the primary accent; --citrus the secondary highlight;
+     --crimson reserved for "critical" semantic only. */
+  --leaf:        #5a8a2e;   /* primary accent */
+  --leaf-soft:   #8aab5e;
+  --citrus:      #d97a2e;   /* secondary highlight + hover */
+  --moss:        #4a5c30;
+  --crimson:     #8a1f1f;   /* reserved: critical-issue badge only */
   --crimson-soft: #b85454;
-  --moss: #4a5c30;
 
   /* Type */
   --display: var(--font-display), 'Fraunces', 'Cormorant Garamond', Georgia, serif;
@@ -159,7 +165,7 @@ main { position: relative; z-index: 1; }
 
 .title em {
   font-style: italic;
-  color: var(--crimson);
+  color: var(--leaf);
   font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 1;
 }
 
@@ -201,7 +207,7 @@ main { position: relative; z-index: 1; }
 .install-box::before {
   content: '$';
   margin-right: 0.85rem;
-  color: var(--crimson);
+  color: var(--leaf);
   font-weight: 600;
 }
 
@@ -223,7 +229,7 @@ main { position: relative; z-index: 1; }
   transition: color 0.2s;
 }
 
-.actions a:hover { color: var(--crimson); border-bottom-color: var(--crimson); }
+.actions a:hover { color: var(--citrus); border-bottom-color: var(--citrus); }
 .actions .sep { color: var(--ink-faint); font-style: normal; font-family: var(--mono); }
 
 /* ─────────────────── SECTION SHELL ─────────────────── */
@@ -363,7 +369,7 @@ main { position: relative; z-index: 1; }
 
 .observation {
   background: var(--paper-warm);
-  border-left: 3px solid var(--crimson);
+  border-left: 3px solid var(--leaf);
   padding: 1.75rem 2rem;
   font-family: var(--display);
   font-style: italic;
@@ -381,7 +387,7 @@ main { position: relative; z-index: 1; }
   position: absolute;
   top: -0.3rem;
   left: 0.6rem;
-  color: var(--crimson-soft);
+  color: var(--leaf-soft);
   line-height: 1;
   font-style: normal;
 }
@@ -426,7 +432,7 @@ main { position: relative; z-index: 1; }
   border: var(--rule);
 }
 
-.terminal .cmd::before { content: '$ '; color: var(--crimson-soft); }
+.terminal .cmd::before { content: '$ '; color: var(--citrus); }
 .terminal .comment { color: var(--ink-faint); font-style: italic; }
 .terminal .out { color: var(--ink-faint); }
 
@@ -446,7 +452,7 @@ main { position: relative; z-index: 1; }
 }
 
 .colophon a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--ink-faint); }
-.colophon a:hover { color: var(--crimson); border-bottom-color: var(--crimson); }
+.colophon a:hover { color: var(--citrus); border-bottom-color: var(--citrus); }
 
 /* Page-load reveal */
 @keyframes appear {

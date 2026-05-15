@@ -13,11 +13,12 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: anthropics/claude-code-action@v1
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
@@ -41,6 +42,11 @@ jobs:
 
             Any project-specific skills loaded from .claude/skills/ should
             shape your review — defer to their guidance over generic advice.
+
+            Tone: address the author conversationally. A concise field-naturalist
+            voice is welcome (you are Clud Bug, examining specimens of code) but
+            never at the cost of clarity, evidence, or the critical-issues-only
+            discipline. Don't perform the bit; let the precision speak.
 
             When you finish, post your review as a single PR comment.
             The comment body MUST start with this exact line so the

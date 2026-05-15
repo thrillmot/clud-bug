@@ -2,6 +2,13 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] — 2026-05-15
+
+### Changed
+- **Brand voice extends past the site.** CLI log strings, README intro, and review-prompt tone now consistently inhabit the field-naturalist voice the site already used. The bot is told to address authors conversationally without sacrificing clarity or critical-issues-only discipline.
+- **Color palette swap on cludbug.dev.** Replace the crimson accent with leaf-green primary + citrus-orange highlights — taken from the clud-bug emoji's actual colors. Crimson is now reserved for "critical issue" badges only.
+- **Node.js 20 deprecation fix.** All workflow templates now bump `actions/checkout@v5` and `actions/setup-node@v5`, and set `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` so generated workflows stop emitting deprecation warnings ahead of GitHub's June 2 / Sept 16 cutovers.
+
 ## [0.2.1] — 2026-05-15
 
 ### Fixed
@@ -30,6 +37,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - Three baseline skills shipped in the package: `critical-issues-only`, `evidence-based-review`, `respect-existing-conventions`.
 - 28 unit tests, repo-level CI (test + actionlint).
 
+[0.2.2]: https://github.com/thrillmot/clud-bug/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/thrillmot/clud-bug/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/thrillmot/clud-bug/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/thrillmot/clud-bug/releases/tag/v0.1.0

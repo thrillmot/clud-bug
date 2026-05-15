@@ -30,22 +30,22 @@ function parseArgs(argv) {
   return args;
 }
 
-const HELP = `clud-bug — Claude PR review with project-aware skills
+const HELP = `clud-bug 🐛 — a field guide to specimens crawling your code
 
 Usage:
   npx clud-bug <command> [options]
 
 Commands:
-  init                  First-time setup: detect repo, install skills, write workflow.
-  list                  Show currently installed skills (baseline / remote / custom).
-  add <source/name>     Install one skill from skills.sh (e.g. vercel-labs/skills/next-best-practices).
-  remove <slug>         Remove an installed skill (refuses if it's a custom skill).
-  refresh               Re-query skills.sh and diff against installed; prompt to update.
+  init                  Open field season: survey the repo, pin baseline specimens, write the workflow.
+  list                  Show your collection (baseline / from skills.sh / custom).
+  add <source/name>     Pin one new specimen from skills.sh (e.g. vercel-labs/skills/next-best-practices).
+  remove <slug>         Unpin a clud-bug-managed specimen (refuses to touch your custom ones).
+  refresh               Re-survey, diff against your collection, prompt to update.
 
 Options:
-  --offline             Skip skills.sh; only use bundled baseline skills (init/refresh).
-  --accept-all,-y       Accept recommendations without prompting.
-  --commit              git add + commit the generated files when done (init only).
+  --offline             Skip skills.sh; pin only the bundled baseline specimens.
+  --accept-all,-y       Accept the recommended specimens without prompting.
+  --commit              git add + commit the generated kit when done (init only).
   --help,-h             Show this help.
   --version,-v          Show version.
 `;
@@ -75,15 +75,15 @@ async function main() {
 
 async function runInit(args) {
   const cwd = process.cwd();
-  log(`🐛 clud-bug init in ${cwd}`);
+  log(`🐛 Field season opens in ${cwd}.`);
 
-  log('  detecting repo signals...');
+  log('  surveying habitat...');
   const signals = await detect(cwd);
   log(`    primary language: ${signals.primaryLanguage || '(unknown)'}`);
   log(`    search terms:     ${signals.searchTerms.join(', ') || '(none)'}`);
 
   const baseline = await loadBaseline(BASELINE_DIR);
-  log(`    baseline skills:  ${baseline.length}`);
+  log(`    baseline kit:     ${baseline.length} specimens`);
 
   let curated = [];
   let searched = [];
@@ -92,7 +92,7 @@ async function runInit(args) {
   } else {
     const client = new SkillsClient();
     try {
-      log('  querying skills.sh...');
+      log('  consulting skills.sh...');
       [curated, searched] = await Promise.all([
         client.curated().catch(err => { warn(`curated query failed: ${err.message}`); return []; }),
         client.search(signals.searchTerms).catch(err => { warn(`search failed: ${err.message}`); return []; }),
@@ -105,7 +105,7 @@ async function runInit(args) {
 
   const recommended = rankAndCap(curated, searched, baseline);
   log('');
-  log('Recommended skills:');
+  log('Specimens to pin:');
   for (const s of recommended) {
     const tag = s.kind === 'baseline' ? '[baseline]' : `[${s.source}]`;
     log(`  • ${s.name} ${tag}`);
@@ -118,12 +118,12 @@ async function runInit(args) {
     chosen = await promptForSkills(recommended);
   }
 
-  log('  installing skills into .claude/skills/...');
+  log('  pinning specimens to .claude/skills/...');
   const client = new SkillsClient();
   const written = await writeSkills(join(cwd, '.claude', 'skills'), chosen, client);
-  log(`    wrote ${written.length} skills`);
+  log(`    pinned ${written.length} specimens`);
 
-  log('  rendering workflow...');
+  log('  drafting field kit...');
   const tmplName = pickTemplate(signals.languages);
   const tmplPath = join(TEMPLATES, tmplName);
   const workflow = await renderFile(tmplPath, {
@@ -138,21 +138,21 @@ async function runInit(args) {
   if (args.commit) {
     log('  committing...');
     spawnSync('git', ['add', '.claude', '.github/workflows/clud-bug-review.yml'], { cwd, stdio: 'inherit' });
-    spawnSync('git', ['commit', '-m', 'Add clud-bug Claude PR review'], { cwd, stdio: 'inherit' });
+    spawnSync('git', ['commit', '-m', 'Add clud-bug 🐛 — a field guide to specimens crawling your code'], { cwd, stdio: 'inherit' });
   }
 
   log('');
-  log('Done. Next steps:');
+  log('Field kit assembled. Next:');
   log('  1. Set ANTHROPIC_API_KEY in your repo secrets:');
   log('     Settings → Secrets and variables → Actions → New repository secret');
   if (!args.commit) {
     log('  2. git add .claude .github/workflows/clud-bug-review.yml && git commit && git push');
-    log('  3. Open a PR — Clud Bug should comment within ~2 min.');
+    log('  3. Open a PR — the naturalist arrives within ~2 minutes.');
   } else {
-    log('  2. git push, then open a PR — Clud Bug should comment within ~2 min.');
+    log('  2. git push, then open a PR — the naturalist arrives within ~2 minutes.');
   }
   log('');
-  log('Drop your own .claude/skills/<name>/SKILL.md files anytime — they\'re auto-loaded.');
+  log('Drop your own .claude/skills/<name>/SKILL.md files anytime — they get pinned automatically.');
 }
 
 async function promptForSkills(recommended) {
@@ -182,13 +182,13 @@ async function runList(_args) {
   const groups = await listInstalled(skillsDir);
   const total = groups.baseline.length + groups.remote.length + groups.custom.length;
   if (total === 0) {
-    log('No skills installed yet. Run `clud-bug init` to get started.');
+    log('Empty collection. Run `clud-bug init` to open field season.');
     return;
   }
-  log(`🐛 ${total} skill${total === 1 ? '' : 's'} in .claude/skills/`);
+  log(`🐛 ${total} specimen${total === 1 ? '' : 's'} pinned in .claude/skills/`);
   if (groups.baseline.length) {
     log('');
-    log('Baseline (always installed):');
+    log('Baseline (always pinned):');
     for (const s of groups.baseline) log(`  • ${s.slug}`);
   }
   if (groups.remote.length) {
@@ -198,7 +198,7 @@ async function runList(_args) {
   }
   if (groups.custom.length) {
     log('');
-    log('Custom (yours, never auto-modified):');
+    log('Custom (your own — never auto-modified):');
     for (const s of groups.custom) {
       log(`  • ${s.slug}${s.description ? `  — ${s.description}` : ''}`);
     }
@@ -222,7 +222,7 @@ async function runAdd(args) {
   const manifest = await readManifest(skillsDir);
   const merged = { version: 1, installed: [...manifest.installed.filter(e => e.slug !== entry.slug), entry] };
   await writeManifest(skillsDir, merged);
-  log(`  ✓ installed ${entry.slug} → .claude/skills/${entry.slug}/SKILL.md`);
+  log(`  ✓ pinned ${entry.slug} → .claude/skills/${entry.slug}/SKILL.md`);
   log('  Commit + push to apply on the next PR.');
 }
 
@@ -234,7 +234,7 @@ async function runRemove(args) {
   }
   const skillsDir = join(process.cwd(), '.claude', 'skills');
   const entry = await removeSkill(skillsDir, slug);
-  log(`  ✓ removed ${entry.slug}${entry.kind === 'baseline' ? ' (baseline — will return on next init)' : ''}`);
+  log(`  ✓ unpinned ${entry.slug}${entry.kind === 'baseline' ? ' (baseline — returns on next init)' : ''}`);
 }
 
 async function runRefresh(args) {
@@ -242,11 +242,11 @@ async function runRefresh(args) {
   const skillsDir = join(cwd, '.claude', 'skills');
   const manifest = await readManifest(skillsDir);
   if (manifest.installed.length === 0) {
-    log('No clud-bug-managed skills found. Run `clud-bug init` first.');
+    log('No clud-bug-managed specimens found. Run `clud-bug init` first.');
     return;
   }
 
-  log('  detecting repo signals...');
+  log('  re-surveying habitat...');
   const signals = await detect(cwd);
   log(`    primary language: ${signals.primaryLanguage || '(unknown)'}`);
   log(`    search terms:     ${signals.searchTerms.join(', ') || '(none)'}`);
@@ -286,7 +286,7 @@ async function runRefresh(args) {
 
   if (diff.add.length === 0 && diff.remove.length === 0) {
     log('');
-    log('Nothing to update. Skills are in sync with skills.sh recommendations.');
+    log('Collection in sync with skills.sh — nothing to update.');
     return;
   }
 
@@ -307,7 +307,7 @@ async function runRefresh(args) {
   const client = new SkillsClient();
   if (diff.add.length) await writeSkills(skillsDir, diff.add, client);
   for (const entry of diff.remove) await removeSkill(skillsDir, entry.slug);
-  log('  ✓ skills updated. Commit + push to apply on the next PR.');
+  log('  ✓ collection updated. Commit + push to apply on the next PR.');
 }
 
 function rel(from, to) {
