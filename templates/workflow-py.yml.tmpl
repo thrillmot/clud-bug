@@ -42,7 +42,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api graphql:*),Bash(gh api repos/:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api graphql:*),Bash(gh api repos/:*),Bash(touch:*),Bash(cat:*)"
           prompt: |
             {{PROJECT_DESCRIPTION}}
 
@@ -70,6 +70,17 @@ jobs:
               Skills referenced: [skill-name-1, skill-name-2, ...]
             If you genuinely cited none, list "[none]" and explain why no
             installed skill applied to this diff.
+
+            Strict mode (opt-in): if .claude/skills/.clud-bug.json contains
+            { "strictMode": true } at the top level, then after posting the
+            comment, IF you flagged any critical issue (bugs, security,
+            performance, missing test coverage), also write a marker file
+            in the workspace root:
+              touch .clud-bug-strict-fail
+            A post-step in this workflow detects that file and fails the
+            check, so the green-or-red status reflects actual findings
+            rather than just "did the bot run." Never write the marker
+            when reviewing was clean.
 
             Tone: address the author conversationally. A concise field-naturalist
             voice is welcome (you are Clud Bug, examining specimens of code) but
@@ -103,3 +114,14 @@ jobs:
             For line-specific issues, use the github_inline_comment MCP tool
             with confirmed: true.
             If there are no critical issues, post a one-line comment saying so.
+
+      # Strict-mode gate (see workflow.yml.tmpl for details).
+      - name: Strict mode — fail check on critical findings
+        if: always()
+        run: |
+          if [ -f .clud-bug-strict-fail ]; then
+            echo "::error title=Clud Bug 🐛::Critical issues found and strictMode is enabled — failing this check."
+            echo "::error::See the Clud Bug review comment for details, or disable strict mode by removing 'strictMode' from .claude/skills/.clud-bug.json."
+            rm -f .clud-bug-strict-fail
+            exit 1
+          fi

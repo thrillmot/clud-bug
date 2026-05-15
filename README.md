@@ -77,6 +77,20 @@ The CLI prepares an `audits/YYYY-MM-DD.md` stub. For findings, `clud-bug init` a
 
 The workflow ships with `workflow_dispatch` only (manual). The cron is in the file, commented — uncomment for weekly audits.
 
+## Strict mode (opt-in)
+
+By default, Clud Bug is **advisory** — the workflow check turns green when the bot ran successfully, regardless of what it found. Inline comments flag issues; merging is your call.
+
+For repos that want the check status to reflect actual findings, opt into **strict mode** by adding `strictMode: true` to `.claude/skills/.clud-bug.json`:
+
+```json
+{ "strictMode": true, ... }
+```
+
+In strict mode, when Clud Bug flags a critical issue (bug, security, performance, missing test coverage), the workflow fails. Add `clud-bug-review` to your branch protection's required status checks and merging is blocked until findings are addressed.
+
+Toggle off by removing the `strictMode` field. No workflow rewrite needed.
+
 ## How skills shape reviews
 
 Skills aren't background reading material for the bot — they're rules with authority. The workflow prompt now requires Clud Bug to:
