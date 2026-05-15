@@ -14,53 +14,91 @@ const INK_FAINT = '#7e6840';
 const LEAF = '#5a8a2e';
 const CITRUS = '#d97a2e';
 
-async function loadFraunces() {
-  // Google Fonts CSS2 emits one @font-face block per (style × unicode-range subset),
-  // so for an italic+normal request we typically get 4 blocks: italic-latin,
-  // italic-latin-ext, normal-latin, normal-latin-ext. We need to parse each
-  // block's font-style to know which woff2 belongs to which variant — taking the
-  // first two woff2 URLs is wrong, as both could be e.g. normal-latin-ext +
-  // italic-latin-ext, missing one variant entirely.
-  const url = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;1,9..144,300&display=swap';
-  const css = await (await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } })).text();
+type FontWeight = 300 | 500;
+type FontVariant = {
+  name: string;
+  data: ArrayBuffer;
+  weight: FontWeight;
+  style: 'normal' | 'italic';
+};
 
-  // Match each @font-face { ... } block separately, then pick a representative
-  // woff2 (the latin subset, which is the smallest unicode-range and covers
-  // English) for each style.
+// Fetch a single Google Font variant. Parses CSS2 output (which emits one
+// @font-face block per (style × unicode-range subset)), picks the block whose
+// font-style matches what we asked for AND whose unicode-range covers basic
+// uppercase ASCII (U+0041 'A'), then downloads that block's woff2.
+async function loadGoogleFont(
+  family: string,
+  cssParams: string,
+  weight: FontWeight,
+  style: 'normal' | 'italic',
+): Promise<FontVariant> {
+  const url = `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, '+')}:${cssParams}&display=swap`;
+  const cssRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!cssRes.ok) throw new Error(`Google Fonts CSS for ${family} returned ${cssRes.status}`);
+  const css = await cssRes.text();
+
   const blocks = [...css.matchAll(/@font-face\s*\{([^}]+)\}/g)].map((m) => m[1]);
-
-  function pickFor(style: 'normal' | 'italic'): string | null {
-    const candidates = blocks.filter((b) => {
-      const styleMatch = b.match(/font-style:\s*([a-z]+)/);
-      return styleMatch && styleMatch[1] === style;
-    });
-    if (candidates.length === 0) return null;
-    // Prefer the basic latin subset (its unicode-range starts with U+0000 / U+0020).
-    // Fall back to the first candidate if no clear winner.
-    const latin = candidates.find((b) => /unicode-range:\s*U\+(?:0000|0020|0001)/i.test(b));
-    const chosen = latin || candidates[0];
-    const url = chosen.match(/url\((https:[^)]+\.woff2)\)\s+format\('woff2'\)/);
-    return url ? url[1] : null;
+  const styleBlocks = blocks.filter((b) => {
+    const m = b.match(/font-style:\s*([a-z]+)/);
+    return m && m[1] === style;
+  });
+  if (styleBlocks.length === 0) {
+    throw new Error(`No @font-face block for ${family} style=${style}`);
   }
 
-  const normalUrl = pickFor('normal');
-  const italicUrl = pickFor('italic');
-  if (!normalUrl || !italicUrl) {
-    throw new Error(`Failed to extract Fraunces font URLs (normal=${!!normalUrl}, italic=${!!italicUrl})`);
+  // Prefer a subset whose unicode-range explicitly covers basic uppercase ASCII.
+  // We test for U+0041 ('A') being inside any of the listed ranges in the block.
+  const basicLatin = styleBlocks.find((b) => coversBasicLatin(b));
+  const chosen = basicLatin ?? styleBlocks[0];
+  if (!basicLatin) {
+    // Surfacing this in build/runtime logs without breaking the route.
+    console.warn(`loadGoogleFont(${family}, ${style}): no basic-latin block detected, falling back to first match`);
   }
 
-  const [normalBuf, italicBuf] = await Promise.all([
-    fetch(normalUrl).then((r) => r.arrayBuffer()),
-    fetch(italicUrl).then((r) => r.arrayBuffer()),
+  const woffMatch = chosen.match(/url\((https:[^)]+\.woff2)\)\s+format\('woff2'\)/);
+  if (!woffMatch) throw new Error(`No woff2 URL in chosen ${family}/${style} block`);
+  const woffRes = await fetch(woffMatch[1]);
+  if (!woffRes.ok) throw new Error(`woff2 fetch for ${family}/${style} returned ${woffRes.status}`);
+
+  return { name: family, data: await woffRes.arrayBuffer(), weight, style };
+}
+
+// True if any unicode-range in the block includes U+0041 ('A').
+function coversBasicLatin(block: string): boolean {
+  const range = block.match(/unicode-range:\s*([^;]+);/);
+  if (!range) return false;
+  const segments = range[1].split(',').map((s) => s.trim());
+  for (const seg of segments) {
+    // Forms: U+0041, U+0020-007F, U+0041-005A
+    const single = seg.match(/^U\+([0-9A-F]+)$/i);
+    if (single && parseInt(single[1], 16) === 0x41) return true;
+    const span = seg.match(/^U\+([0-9A-F]+)-([0-9A-F]+)$/i);
+    if (span && parseInt(span[1], 16) <= 0x41 && parseInt(span[2], 16) >= 0x41) return true;
+  }
+  return false;
+}
+
+async function loadFonts(): Promise<FontVariant[]> {
+  // ital,opsz,wght@0,9..144,300 = roman, optical-size axis 9-144, weight 300
+  // ital,opsz,wght@1,9..144,300 = italic, same
+  const [normal, italic, mono] = await Promise.all([
+    loadGoogleFont('Fraunces', 'ital,opsz,wght@0,9..144,300', 300, 'normal'),
+    loadGoogleFont('Fraunces', 'ital,opsz,wght@1,9..144,300', 300, 'italic'),
+    loadGoogleFont('JetBrains Mono', 'wght@500', 500, 'normal'),
   ]);
-  return [
-    { name: 'Fraunces', data: normalBuf, weight: 300 as 300, style: 'normal' as 'normal' },
-    { name: 'Fraunces', data: italicBuf, weight: 300 as 300, style: 'italic' as 'italic' },
-  ];
+  return [normal, italic, mono];
 }
 
 export default async function OG() {
-  const fonts = await loadFraunces();
+  // If Google Fonts hiccups, fall back to satori's bundled defaults rather than
+  // 500-ing — social-card unfurlers cache broken fetches for hours.
+  let fonts: FontVariant[] = [];
+  try {
+    fonts = await loadFonts();
+  } catch (err) {
+    console.warn(`OG image font load failed; falling back to satori defaults: ${(err as Error).message}`);
+  }
+
   return new ImageResponse(
     (
       <div
@@ -201,7 +239,7 @@ export default async function OG() {
             — Cluddus bugfindii, observed crawling on every PR.
           </div>
 
-          {/* Install pill */}
+          {/* Install pill — JetBrains Mono if loaded, otherwise default fallback */}
           <div
             style={{
               marginTop: 44,
@@ -209,7 +247,7 @@ export default async function OG() {
               background: PAPER_WARM,
               border: `1px solid ${INK}`,
               boxShadow: `8px 8px 0 ${PAPER_SHADOW}`,
-              fontFamily: 'monospace',
+              fontFamily: '"JetBrains Mono", monospace',
               fontSize: 32,
               color: INK,
               alignSelf: 'flex-start',
