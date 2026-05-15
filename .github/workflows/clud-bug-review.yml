@@ -22,7 +22,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api graphql:*),Bash(gh api repos/:*)"
           prompt: |
             This project is "clud-bug". Claude Code PR review GitHub Action with project-aware skills auto-discovered from skills.sh. It's primarily javascript.
 
@@ -52,6 +52,21 @@ jobs:
 
             Post it via:
               gh pr comment "$PR_NUMBER" --body "<your review>"
+
+            If you previously reviewed this PR (you'll see prior claude[bot]
+            comments starting with "## 🐛 Clud Bug review"), resolve your
+            prior unresolved inline review threads where the flagged issue
+            is fixed in the current diff. List threads:
+
+              gh api graphql -f query='{ repository(owner: "${{ github.repository_owner }}", name: "${{ github.event.repository.name }}") { pullRequest(number: '"$PR_NUMBER"') { reviewThreads(first: 30) { nodes { id isResolved comments(first: 1) { nodes { body author { login } } } } } } } }'
+
+            For each unresolved thread you (claude[bot]) authored where the
+            issue is now addressed:
+
+              gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "<id>"}) { thread { isResolved } } }'
+
+            Only resolve threads where the fix is verifiable in the diff.
+            Leave unresolved any thread whose issue still stands.
             For line-specific issues, use the github_inline_comment MCP tool
             with confirmed: true.
             If there are no critical issues, post a one-line comment saying so.
