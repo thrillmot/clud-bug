@@ -40,3 +40,13 @@
 - Bot's review header signals findings: '## 🐛 Clud Bug review — critical findings' triggers the gate. Post-step uses jq with startswith() against latest claude[bot] comment. Manifest read from BASE ref (origin/<base_ref>), not PR head — PRs cannot disable their own gate.
 
 ---
+## 2026-05-15 09:54 - Extended logmind ignore_patterns with Node/Next.js/Vercel cache dirs to keep file-structure.md stable
+
+**Reasoning:** Default ignore_patterns from logmind init are Python-leaning (no .next/.vercel/.turbo/out/coverage). file-structure.md was 80% Next.js build cache and would generate huge diff churn on every logmind log invocation. Added Node-aware patterns.
+
+**Alternatives considered:** Disable auto_update entirely; add patterns to a separate per-project ignore file
+
+**Implications:**
+- Future logmind log calls regenerate a stable, signal-rich file-structure.md. Doc churn is contained to actual source/structure changes.
+
+---

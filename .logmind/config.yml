@@ -31,6 +31,7 @@ file_structure:
 
   # Directories to ignore in tree output
   ignore_patterns:
+    # Defaults from `logmind init` (Python-leaning):
     - __pycache__
     - .git
     - node_modules
@@ -44,6 +45,18 @@ file_structure:
     - dist
     - build
     - "*.egg-info"
+    # Added for clud-bug (Node + Next.js + Vercel workspace):
+    - .next
+    - .vercel
+    - .turbo
+    - out
+    - coverage
+    - .DS_Store
+    - "*.tsbuildinfo"
+    - "*.log"
+    - .nyc_output
+    # Per-developer auth + scheduled-task lockfile (already gitignored):
+    - .claude/scheduled_tasks.lock
 
 # AI Agent configuration
 # Set to true to enable an agent, false to disable
