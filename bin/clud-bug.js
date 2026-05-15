@@ -148,8 +148,7 @@ async function runInit(args) {
   // generic; flag this so users notice.
   const remoteCount = written.filter((w) => w.kind !== 'baseline').length;
   if (remoteCount === 0) {
-    warn('Only baseline specimens pinned. clud-bug works best with project-specific skills.');
-    warn('Try: clud-bug add vercel-labs/skills/<name>, or drop your own .claude/skills/<name>/SKILL.md.');
+    warn('Only baseline specimens pinned. Add project-specific skills via `clud-bug add vercel-labs/skills/<name>` or drop your own `.claude/skills/<name>/SKILL.md`.');
   }
 
   log('  drafting field kit...');
