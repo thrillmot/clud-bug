@@ -390,7 +390,44 @@ main { position: relative; z-index: 1; }
   gap: 2.5rem;
 }
 
-@media (min-width: 900px) { .specimens { grid-template-columns: repeat(3, 1fr); gap: 2rem; } }
+@media (min-width: 900px) {
+  /* 2x2 at desktop. Four cards in a single row crushes specimen-desc to
+     unreadable widths; two columns gives each example room to breathe. */
+  .specimens { grid-template-columns: repeat(2, 1fr); gap: 2rem; }
+}
+
+/* Lead paragraph that frames the specimens grid (skills as the moat). */
+.section-prose-lead {
+  font-family: var(--body);
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+  margin-bottom: 2rem;
+  max-width: var(--col);
+  line-height: 1.55;
+}
+.section-prose-lead em {
+  font-style: italic;
+  color: var(--leaf);
+}
+
+/* Footer line under the specimens grid mentioning the always-pinned
+   baselines + skills.sh. Smaller and faded so it doesn't compete with
+   the above-the-fold custom-skills story. */
+.specimens-footer {
+  margin-top: 2rem;
+  font-family: var(--body);
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  font-style: italic;
+  line-height: 1.55;
+  max-width: var(--col);
+}
+.specimens-footer a {
+  color: inherit;
+  border-bottom: 1px dotted var(--ink-faint);
+  text-decoration: none;
+}
+.specimens-footer a:hover { color: var(--citrus); border-bottom-color: var(--citrus); }
 
 .specimen {
   background: var(--paper-warm);
@@ -500,6 +537,22 @@ main { position: relative; z-index: 1; }
      gated behind ≤600px, so widths in the 600–900px tablet range had
      visible right-edge overflow. */
   overflow-x: auto;
+}
+
+/* Right-edge scroll affordance: fade the last ~2.5rem of the box to the
+   terminal's dark background. Signals "more content this way" when the
+   user can scroll, and is harmlessly invisible when content already fits
+   (the fade target IS the bg). Sits inside the border (top/right/bottom
+   inset by 1px) and ignores clicks/scroll-touch. */
+.terminal::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  width: 2.5rem;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--ink) 75%);
 }
 
 .terminal::before {
