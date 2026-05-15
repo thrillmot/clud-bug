@@ -293,7 +293,9 @@ main { position: relative; z-index: 1; }
 
 .section-prose { max-width: var(--col); }
 .section-prose p { margin-bottom: 1.1em; }
-.section-prose p + p { text-indent: 1.4em; }
+/* Removed: text-indent on p+p. Single-paragraph sections looked off relative
+   to multi-paragraph ones. Margin-only separation reads consistently across
+   all section variants. */
 .section-prose strong { font-weight: 600; color: var(--ink); }
 .section-prose code {
   font-family: var(--mono);
