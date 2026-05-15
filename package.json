@@ -1,7 +1,9 @@
 {
   "name": "clud-bug",
-  "version": "0.1.0",
-  "description": "Claude Code PR review GitHub Action with project-aware skills auto-discovered from skills.sh",
+  "version": "0.2.0",
+  "description": "Claude PR review with project-aware skills. CLI installs a working GitHub Actions workflow and curates skills from skills.sh.",
+  "homepage": "https://cludbug.dev",
+  "bugs": "https://github.com/thrillmot/clud-bug/issues",
   "type": "module",
   "license": "MIT",
   "author": "thrillmot",
@@ -32,6 +34,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "prepublishOnly": "npm test"
   }
 }
