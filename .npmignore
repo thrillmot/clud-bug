@@ -1,0 +1,22 @@
+# Belt-and-suspenders: package.json `files` is authoritative, but this
+# guarantees nothing accidentally ends up in the tarball if someone adds
+# a new top-level file later.
+
+test/
+site/
+.github/
+.claude/
+.vercel/
+.git/
+.gitignore
+.npmignore
+
+# Build artifacts
+node_modules/
+*.tgz
+*.log
+.DS_Store
+
+# Plans / dev-only
+/Users/
+CHANGELOG.md.bak
