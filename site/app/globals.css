@@ -563,3 +563,94 @@ main { position: relative; z-index: 1; }
   .bug-pin { animation: none; rotate: -12deg; scale: 1; translate: 0 0; }
   [class^='appear'] { animation: none; }
 }
+
+/* ─────────────────── MOBILE / NARROW VIEWPORTS ───────────────────
+   The desktop layout assumes a generous left margin column for the
+   plate / marginalia and ample horizontal padding. Below 600px the
+   page condenses to a single readable column with smaller type and
+   a stacked footer. Tested down to 375px (iPhone SE). */
+
+@media (max-width: 600px) {
+  /* Page: cut horizontal padding so the column actually has room. */
+  .page { padding: 2rem 1.25rem 4rem; }
+
+  /* Folio bar: stack so neither end gets clamped mid-word. */
+  .folio {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    margin-bottom: 2.5rem;
+  }
+
+  /* Hero: order the plate strip ABOVE the title block, both full-width.
+     Trimmed bug + plate label become a small horizontal masthead instead
+     of a left margin. */
+  .plate {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .plate-number { font-size: 1.6rem; margin: 0; }
+  .plate-label  { display: inline; }
+  .plate-gloss  { display: none; } /* Doc-noise on small screens — hide. */
+  .bug-pin      { font-size: 3rem; margin: 0; }
+
+  /* Title scales with viewport width instead of jumping to a 3.5rem floor. */
+  .title    { font-size: clamp(2.5rem, 13vw, 5rem); letter-spacing: -0.04em; }
+  .subtitle { font-size: 1.15rem; margin-top: 1rem; }
+  .binomial { font-size: 0.9rem; }
+
+  /* Install pill stays inside the column even with long-ish commands. */
+  .install-box {
+    margin-top: 2rem;
+    padding: 0.85rem 1.1rem;
+    font-size: 0.95rem;
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* Action row wraps cleanly instead of leaving · separators dangling. */
+  .actions {
+    flex-wrap: wrap;
+    gap: 0.5rem 0.85rem;
+    font-size: 0.95rem;
+    margin-top: 1.25rem;
+  }
+
+  /* Live-data ledger: two columns max so labels don't crush. */
+  .ledger { gap: 1.25rem 1.75rem; margin-top: 1.5rem; padding-top: 1rem; }
+  .ledger dd { font-size: 1.4rem; }
+
+  /* Section heads stay readable but smaller. */
+  .section-title { font-size: 2rem; }
+
+  /* Specimens already stack at 900px; just shrink padding. */
+  .specimen { padding: 1.25rem; }
+
+  /* Observation block: less inner padding, smaller quote mark, easier read. */
+  .observation { padding: 1.25rem 1.4rem; font-size: 1.05rem; }
+  .observation::before { font-size: 3rem; top: -0.1rem; }
+
+  /* Terminal block: scroll horizontally instead of forcing line breaks
+     that make the install commands unreadable. */
+  .terminal { padding: 1.25rem 1.25rem; font-size: 0.85rem; overflow-x: auto; }
+  .terminal::before { font-size: 0.6rem; left: 0.75rem; }
+
+  /* Footer: stack the three credits vertically with even spacing. */
+  .colophon {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-top: 4rem;
+  }
+}
+
+/* Extra-tight viewport (≤375px iPhone SE): just tighten what stops fitting. */
+@media (max-width: 380px) {
+  .page { padding: 1.5rem 1rem 3rem; }
+  .title { font-size: clamp(2.2rem, 13vw, 4rem); }
+  .install-box { font-size: 0.88rem; padding: 0.75rem 0.9rem; }
+}
