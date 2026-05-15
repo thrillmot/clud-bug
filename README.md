@@ -158,6 +158,19 @@ If you want clud-bug to review fork PRs too, you have two options:
 
 clud-bug's generated workflow uses `pull_request` by default. If you understand the trade-offs, edit the trigger yourself.
 
+## When you edit the workflow
+
+clud-bug uses [`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action), which **refuses to run when the PR being reviewed modifies the action's own workflow file**. That's a security guard against PRs that try to neuter the reviewer or exfiltrate secrets via prompt injection. If you edit `.github/workflows/clud-bug-review.yml` (or any clud-bug workflow), expect this check to fail with a 401 — `App token exchange failed: Workflow validation failed`. That's the documented behavior, not a bug. Merge the workflow change in isolation, and subsequent PRs work normally.
+
+To make this easier, `clud-bug edit-workflow` packages the workflow change into a clean PR for you:
+
+```bash
+# Edit .github/workflows/clud-bug-*.yml as you like, then:
+clud-bug edit-workflow
+```
+
+The command refuses to run if your working tree has any non-workflow changes — keeping the PR scoped to just the workflow edit.
+
 ## Verifying it works
 
 After install:

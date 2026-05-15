@@ -14,6 +14,7 @@ import {
 } from '../lib/skills.js';
 import { computeAuditFileSet, renderAuditHeader } from '../lib/audit.js';
 import { runUpdate } from '../lib/update.js';
+import { getPendingWorkflowEdits, makeBranchName, git as gitCmd } from '../lib/edit-workflow.js';
 
 const PKG_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TEMPLATES = join(PKG_ROOT, 'templates');
@@ -55,6 +56,8 @@ Commands:
                         Use --since / --changed-in / --scope to narrow.
   update                Re-render workflows + refresh baseline specimens to the latest shipped
                         templates. Custom and skills.sh-installed specimens left alone.
+  edit-workflow         Helper for editing .github/workflows/clud-bug-*.yml in an isolated
+                        PR (the action refuses to review PRs that modify its own workflow).
 
 Options:
   --offline             Skip skills.sh; pin only the bundled baseline specimens.
@@ -87,6 +90,7 @@ async function main() {
     case 'refresh': return runRefresh(args);
     case 'audit':   return runAudit(args);
     case 'update':  return runUpdateCmd(args);
+    case 'edit-workflow': return runEditWorkflow(args);
     default:
       process.stderr.write(`Unknown command: ${cmd || '(none)'}\n\n${HELP}`);
       process.exit(2);
@@ -376,6 +380,46 @@ async function runRefresh(args) {
   if (diff.add.length) await writeSkills(skillsDir, diff.add, client);
   for (const entry of diff.remove) await removeSkill(skillsDir, entry.slug);
   log('  ✓ collection updated. Commit + push to apply on the next PR.');
+}
+
+async function runEditWorkflow(_args) {
+  const cwd = process.cwd();
+
+  // Validate: must have pending changes, all scoped to clud-bug workflow files.
+  let pending;
+  try {
+    pending = getPendingWorkflowEdits(cwd);
+  } catch (err) {
+    process.stderr.write(`clud-bug edit-workflow: ${err.message}\n`);
+    process.exit(2);
+  }
+
+  if (pending.files.length === 0) {
+    log('Nothing to commit. Edit your .github/workflows/clud-bug-*.yml file(s) first, then re-run.');
+    return;
+  }
+  if (!pending.allWorkflow) {
+    process.stderr.write(`clud-bug edit-workflow: working tree contains non-workflow changes:\n`);
+    for (const f of pending.nonWorkflow) process.stderr.write(`  ${f}\n`);
+    process.stderr.write(`\nThis command is for isolated workflow-only PRs. Stash or commit the\nnon-workflow changes elsewhere first, then re-run.\n`);
+    process.exit(2);
+  }
+
+  log('🐛 Preparing an isolated PR for your workflow edit.');
+  const branch = makeBranchName();
+  log(`  branch: ${branch}`);
+  for (const f of pending.files) log(`    • ${f}`);
+
+  // Branch from current ref (whatever the user was on — usually main),
+  // commit the workflow files only, push, open PR.
+  gitCmd(cwd, ['checkout', '-b', branch]);
+  gitCmd(cwd, ['add', ...pending.files]);
+  gitCmd(cwd, ['commit', '-m', 'Edit clud-bug workflow']);
+  gitCmd(cwd, ['push', '-u', 'origin', branch]);
+
+  log('');
+  log('Done. Open the PR:');
+  log(`  gh pr create --title "Edit clud-bug workflow" --body "Workflow tweak. The clud-bug-review check on this PR will fail with a 401 (Anthropic's self-protection against PRs that modify the reviewer's own workflow); merge once and subsequent PRs work normally."`);
 }
 
 async function runUpdateCmd(_args) {
