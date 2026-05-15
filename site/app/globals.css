@@ -435,8 +435,10 @@ main { position: relative; z-index: 1; }
 }
 
 .terminal .cmd::before { content: '$ '; color: var(--citrus); }
-.terminal .comment { color: var(--ink-faint); font-style: italic; }
+.terminal .comment { color: var(--leaf-soft); font-style: italic; }
 .terminal .out { color: var(--ink-faint); }
+.terminal .path { color: var(--leaf-soft); }
+.terminal .num  { color: var(--citrus); font-weight: 600; }
 
 /* ─────────────────── COLOPHON / FOOTER ─────────────────── */
 
