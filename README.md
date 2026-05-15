@@ -1,6 +1,8 @@
 # Clud Bug 🐛
 ### Crawling all over your code
 
+> **[cludbug.dev](https://cludbug.dev)** · A field guide.
+
 Claude PR review for any GitHub repo, with **project-aware skills** auto-discovered from [skills.sh](https://skills.sh) and a baseline of review-discipline skills bundled in.
 
 One command to install. The first PR you open afterwards gets a real review comment back.

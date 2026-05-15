@@ -1,0 +1,16 @@
+# Node
+node_modules/
+*.log
+.DS_Store
+
+# Site (Next.js)
+site/.next/
+site/out/
+site/next-env.d.ts
+
+# npm publish dry-runs
+*.tgz
+
+# Editor
+.vscode/
+.idea/
