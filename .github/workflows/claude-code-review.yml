@@ -17,11 +17,14 @@ jobs:
       issues: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
       - uses: anthropics/claude-code-action@v1
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
@@ -38,5 +41,3 @@ jobs:
 
             Post via:
               gh pr comment "$PR_NUMBER" --body "<your review>"
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}

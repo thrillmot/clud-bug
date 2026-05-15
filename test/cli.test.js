@@ -83,7 +83,7 @@ test('list reports zero state cleanly', async () => {
   try {
     const r = run(dir, ['list']);
     assert.equal(r.status, 0);
-    assert.match(r.stdout, /No skills installed/);
+    assert.match(r.stdout, /Empty collection/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
@@ -97,7 +97,7 @@ test('remove refuses unmanaged slug, succeeds on managed one', async () => {
     // baseline slug should be removable (will return on next init)
     const ok = run(dir, ['remove', 'critical-issues-only']);
     assert.equal(ok.status, 0, ok.stderr);
-    assert.match(ok.stdout, /removed critical-issues-only/);
+    assert.match(ok.stdout, /unpinned critical-issues-only/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
@@ -139,7 +139,7 @@ test('refresh aborts (does NOT remove remote skills) when skills.sh is unreachab
     // Either the process exits non-zero with the refusal warning, OR the API isn't
     // overridable from env (in which case skip — covered by skills.test.js diff logic).
     // We must NEVER see "skills updated" indicating removal proceeded.
-    assert.doesNotMatch(r.stdout + r.stderr, /skills updated/, 'refresh proceeded with removals despite API failure');
+    assert.doesNotMatch(r.stdout + r.stderr, /collection updated/, 'refresh proceeded with removals despite API failure');
     // Verify the remote skill is still on disk
     const stillThere = await readFile(join(dir, '.claude/skills/some-remote/SKILL.md'), 'utf8');
     assert.match(stillThere, /some-remote/);
@@ -175,6 +175,6 @@ test('refresh --offline shows no-op when only baseline installed', async () => {
     run(dir, ['init', '--offline', '--accept-all']);
     const r = run(dir, ['refresh', '--offline', '--accept-all']);
     assert.equal(r.status, 0, r.stderr);
-    assert.match(r.stdout, /Nothing to update|skills updated/);
+    assert.match(r.stdout, /sync with skills\.sh|collection updated/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
