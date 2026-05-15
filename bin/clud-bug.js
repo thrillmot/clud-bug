@@ -266,8 +266,11 @@ async function runAdd(args) {
   const client = new SkillsClient();
   const entry = await writeSkill(skillsDir, { source, name, kind: 'remote' }, client);
   const manifest = await readManifest(skillsDir);
-  const merged = { version: 1, installed: [...manifest.installed.filter(e => e.slug !== entry.slug), entry] };
-  await writeManifest(skillsDir, merged);
+  // Mutate in place so caller-set fields on the manifest (pinVersion,
+  // lastUpdate, lastUpdateVersion) survive the add. Building a fresh
+  // {version, installed} object would silently drop them.
+  manifest.installed = [...manifest.installed.filter((e) => e.slug !== entry.slug), entry];
+  await writeManifest(skillsDir, manifest);
   log(`  ✓ pinned ${entry.slug} → .claude/skills/${entry.slug}/SKILL.md`);
   log('  Commit + push to apply on the next PR.');
 }

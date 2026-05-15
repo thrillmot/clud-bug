@@ -68,17 +68,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           BRANCH="clud-bug/self-update-${LATEST}"
-          git config user.name  "clud-bug[bot]"
-          git config user.email "41898282+clud-bug[bot]@users.noreply.github.com"
+          # Use github-actions[bot]'s real identity so commits resolve to a
+          # recognizable bot in the GitHub UI. (A "clud-bug[bot]" identity
+          # would only resolve if we registered an actual GitHub App for
+          # clud-bug — out of scope today.)
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
 
           npx -y "clud-bug@${LATEST}" update
 
-          if git diff --quiet; then
-            echo "No file changes after update — nothing to PR."
-            exit 0
-          fi
-
+          # Note: runUpdate always stamps lastUpdate / lastUpdateVersion in
+          # the manifest, so there will always be at least one diff in this
+          # branch. We rely on `git diff` simply to detect *real* file changes
+          # outside the manifest, and let the PR open either way.
           git add -A
           git commit -m "🐛 Clud Bug self-update: ${INSTALLED} → ${LATEST}"
           git push -u origin "$BRANCH"

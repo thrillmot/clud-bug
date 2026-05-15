@@ -260,3 +260,30 @@ test('writeSkill (single) writes one SKILL.md without touching manifest', async 
     assert.equal(m.installed.length, 0);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test('manifest extra fields (pinVersion, lastUpdate*) survive writeSkills + mergeManifest', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'clud-bug-pin-survive-'));
+  try {
+    // Pre-seed manifest with extension fields a user might have set.
+    await writeManifest(dir, {
+      version: 1,
+      installed: [{ slug: 'a', source: 'x', name: 'a', kind: 'remote' }],
+      pinVersion: '0.3.0',
+      lastUpdate: '2026-05-01T00:00:00Z',
+      lastUpdateVersion: '0.3.0',
+    });
+
+    // writeSkills (which goes through mergeManifest) must not strip extras.
+    const client = new SkillsClient({
+      fetch: mockFetch({ '/skills/y/z': { content: 'new' } }),
+    });
+    await writeSkills(dir, [{ source: 'y', name: 'z', kind: 'remote' }], client);
+
+    const after = await readManifest(dir);
+    assert.equal(after.pinVersion, '0.3.0', 'pinVersion must survive writeSkills');
+    assert.equal(after.lastUpdate, '2026-05-01T00:00:00Z');
+    assert.equal(after.lastUpdateVersion, '0.3.0');
+    assert.ok(after.installed.find((e) => e.slug === 'z'));
+    assert.ok(after.installed.find((e) => e.slug === 'a'));
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
