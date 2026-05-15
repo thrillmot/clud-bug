@@ -133,6 +133,10 @@ main { position: relative; z-index: 1; }
   letter-spacing: -0.02em;
   margin-bottom: 0.25rem;
   font-variation-settings: 'WONK' 1;
+  /* "№ I" is a single visual unit. Without nowrap, the mobile flex layout
+     (≤600px) gives this element a small allocated width and wraps at the
+     space, splitting the № onto its own line above the I. */
+  white-space: nowrap;
 }
 
 .plate-label { display: block; }
@@ -491,6 +495,11 @@ main { position: relative; z-index: 1; }
   box-shadow: 0.5rem 0.5rem 0 var(--paper-shadow);
   max-width: var(--col);
   position: relative;
+  /* Always scroll the terminal internally on overflow rather than letting
+     long install commands push the box past the viewport. Was previously
+     gated behind ≤600px, so widths in the 600–900px tablet range had
+     visible right-edge overflow. */
+  overflow-x: auto;
 }
 
 .terminal::before {
