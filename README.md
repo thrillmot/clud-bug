@@ -46,6 +46,22 @@ npx clud-bug init [options]
   --help,-h       Show help.
 ```
 
+## Staying up to date
+
+`clud-bug init` ships a third workflow: `clud-bug-self-update.yml`. Once a week (Mondays 12:00 UTC), it checks npm for a newer `clud-bug` version. If one exists, it runs `clud-bug update` and opens a PR titled `🐛 Clud Bug self-update: vX.Y.Z → vA.B.C`. Custom and skills.sh-installed specimens are never touched — only baseline specimens and the workflow templates get refreshed.
+
+You can also run the update manually:
+
+```bash
+clud-bug update
+```
+
+To pin a specific version and stop receiving update PRs, add `pinVersion` to `.claude/skills/.clud-bug.json`:
+
+```json
+{ "pinVersion": "0.3.0", ... }
+```
+
 ## Auditing the whole repo
 
 PR reviews catch issues entering. Audits catch issues that already crossed the line.

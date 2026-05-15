@@ -2,6 +2,14 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-05-15
+
+### Added
+- **`clud-bug update` CLI** — re-renders the workflow templates and refreshes the bundled baseline specimens. Custom skills are never touched; remote (skills.sh-installed) skills are left alone unless explicitly refreshed via `clud-bug refresh`.
+- **Self-update workflow** — `clud-bug init` now also installs `.github/workflows/clud-bug-self-update.yml`. Cron weekly (Mondays 12:00 UTC). Compares the manifest's `lastUpdateVersion` to npm's `clud-bug@latest`; if newer, runs `update` and opens a PR with the diff.
+- **Pin escape hatch** — set `pinVersion` in `.claude/skills/.clud-bug.json` and the self-update workflow exits cleanly without opening PRs.
+- **Manifest preserves arbitrary keys** — `lastUpdate`, `lastUpdateVersion`, `pinVersion`, etc. survive read/write cycles.
+
 ## [0.3.0] — 2026-05-15
 
 ### Added
@@ -15,6 +23,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Paragraph indent inconsistency on cludbug.dev.** Removed the `text-indent: 1.4em` rule on `.section-prose p + p`.
 - **Bug-pin scuttle animation** snap removed by replacing the 45/47%/90% keyframes with a symmetric 35→65% scuttle.
 
+[0.3.1]: https://github.com/thrillmot/clud-bug/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/thrillmot/clud-bug/compare/v0.2.2...v0.3.0
 
 ## [0.2.2] — 2026-05-15

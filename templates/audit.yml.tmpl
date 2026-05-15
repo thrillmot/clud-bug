@@ -56,8 +56,10 @@ jobs:
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
 
-          git config user.name  "clud-bug[bot]"
-          git config user.email "41898282+clud-bug[bot]@users.noreply.github.com"
+          # Use github-actions[bot]'s real identity (clud-bug isn't a registered
+          # GitHub App, so its name wouldn't resolve to a recognizable bot).
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
 
           ARGS=()
