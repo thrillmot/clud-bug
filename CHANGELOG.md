@@ -2,6 +2,11 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-05-15
+
+### Fixed
+- Silence `bin[clud-bug] script name was cleaned` publish warning by switching to the shorthand `"bin": "bin/clud-bug.js"` form (preferred when the binary name matches the package name).
+
 ## [0.2.0] — 2026-05-15
 
 ### Added
@@ -25,5 +30,6 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - Three baseline skills shipped in the package: `critical-issues-only`, `evidence-based-review`, `respect-existing-conventions`.
 - 28 unit tests, repo-level CI (test + actionlint).
 
+[0.2.1]: https://github.com/thrillmot/clud-bug/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/thrillmot/clud-bug/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/thrillmot/clud-bug/releases/tag/v0.1.0
