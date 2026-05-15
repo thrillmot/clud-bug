@@ -139,17 +139,25 @@ main { position: relative; z-index: 1; }
 
 .bug-pin {
   font-size: 3.5rem;
-  display: block;
+  display: inline-block;
   margin-top: 1.25rem;
-  transform: rotate(-12deg);
-  animation: scuttle 8s ease-in-out infinite;
-  transform-origin: center;
+  transform-origin: 60% 80%;
+  animation: scuttle 9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  /* Resting state — animation uses fill-mode 'both' (default behavior of
+     'forwards' + 'backwards' via the keyframe at 0%) so the bug always
+     renders at the resting tilt. */
 }
 
+/* A slow, symmetric scuttle: long rest → easy lean forward → easy lean back
+   → rest again. All keyframes share the same translateY, so the apparent
+   "down jump" the previous version had (sudden swap from 47% to 90%) is
+   gone. Each motion phase has matching duration to its mirror. */
 @keyframes scuttle {
-  0%, 90%, 100% { transform: rotate(-12deg) translateX(0); }
-  45% { transform: rotate(8deg) translateX(0.4rem); }
-  47% { transform: rotate(-4deg) translateX(0.6rem); }
+  0%,  35%, 100% { transform: rotate(-12deg) translateX(0); }
+  45% { transform: rotate(-2deg) translateX(0.25rem); }
+  50% { transform: rotate(6deg) translateX(0.45rem); }
+  55% { transform: rotate(-2deg) translateX(0.25rem); }
+  65% { transform: rotate(-12deg) translateX(0); }
 }
 
 /* Right column: title, subtitle, install */
@@ -231,6 +239,35 @@ main { position: relative; z-index: 1; }
 
 .actions a:hover { color: var(--citrus); border-bottom-color: var(--citrus); }
 .actions .sep { color: var(--ink-faint); font-style: normal; font-family: var(--mono); }
+
+/* Live tally — small "ledger" beneath the install action row.
+   Each <div> wraps a dt/dd pair laid out vertically. */
+.ledger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2.25rem;
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px dotted var(--ink-faint);
+  max-width: 36rem;
+}
+.ledger > div { display: flex; flex-direction: column; }
+.ledger dt {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 0.15rem;
+}
+.ledger dd {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1.6rem;
+  font-weight: 300;
+  color: var(--leaf);
+  line-height: 1;
+}
 
 /* ─────────────────── SECTION SHELL ─────────────────── */
 

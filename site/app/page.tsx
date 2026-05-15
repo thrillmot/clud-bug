@@ -1,9 +1,19 @@
-export default function Home() {
+import { getNpmStats, getRepoStats, getLatestPublicReview, formatCount } from '../lib/data';
+
+export default async function Home() {
+  // Public-only sources, server-fetched and cached for 1h. Failures degrade
+  // gracefully — sections hide rather than break the page.
+  const [npm, repo, latest] = await Promise.all([
+    getNpmStats(),
+    getRepoStats(),
+    getLatestPublicReview(),
+  ]);
+
   return (
     <main className="page">
       <header className="folio">
         <span>A Field Guide to Code Specimens</span>
-        <span>Vol. 0 · No. 2 · MMXXVI</span>
+        <span>Vol. 0 · {npm ? `v${npm.version}` : 'No. 2'} · MMXXVI</span>
       </header>
 
       {/* ─────────── FRONTISPIECE ─────────── */}
@@ -29,6 +39,19 @@ export default function Home() {
             <span className="sep">·</span>
             <a href="#how-to-collect">How to collect</a>
           </div>
+          {(npm || repo) && (
+            <dl className="ledger appear-4" aria-label="Live field tally">
+              {npm && (
+                <>
+                  <div><dt>Edition</dt><dd>v{npm.version}</dd></div>
+                  <div><dt>Downloads / wk</dt><dd>{formatCount(npm.weeklyDownloads)}</dd></div>
+                </>
+              )}
+              {repo && (
+                <div><dt>PRs reviewed</dt><dd>{formatCount(repo.recentMergedCount)}</dd></div>
+              )}
+            </dl>
+          )}
         </div>
       </section>
 
@@ -116,12 +139,24 @@ export default function Home() {
             A single PR review on a fixture file with four planted defects. The naturalist
             also flagged a fifth issue the author had not intended.
           </aside>
-          <blockquote className="observation">
-            Found all four planted bugs plus a fifth bonus problem (command injection via
-            <code style={{ background: 'transparent', border: 0, padding: 0, fontStyle: 'normal' }}> sh -c + rm -rf</code>{' '}
-            — worse than the SQL injection — RCE). Inline comments posted at each site.
-            <footer>Specimen review · 53 seconds · PR #2</footer>
-          </blockquote>
+          {latest ? (
+            <blockquote className="observation">
+              {latest.headline}
+              <footer>
+                Latest field note ·{' '}
+                <a href={latest.prUrl} style={{ color: 'inherit' }}>
+                  PR #{latest.prNumber}: {latest.prTitle}
+                </a>
+              </footer>
+            </blockquote>
+          ) : (
+            <blockquote className="observation">
+              Found all four planted bugs plus a fifth bonus problem (command injection via
+              <code style={{ background: 'transparent', border: 0, padding: 0, fontStyle: 'normal' }}> sh -c + rm -rf</code>{' '}
+              — worse than the SQL injection — RCE). Inline comments posted at each site.
+              <footer>Specimen review · 53 seconds · PR #2</footer>
+            </blockquote>
+          )}
         </div>
       </section>
 
