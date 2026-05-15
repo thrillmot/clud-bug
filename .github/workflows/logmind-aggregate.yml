@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write   # fallback when direct push to base is blocked by branch protection
 
 jobs:
   aggregate:
@@ -36,7 +37,11 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: python -m logmind.actions.aggregate
 
-      - name: Commit and push
+      - name: Commit and push (or open PR if base is protected)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           if git diff --quiet docs/decisions.md; then
             echo "No aggregation changes to commit."
@@ -45,5 +50,25 @@ jobs:
           git config user.name "logmind-bot"
           git config user.email "logmind@users.noreply.github.com"
           git add docs/decisions.md
-          git commit -m "logmind: aggregate decisions from #${{ github.event.pull_request.number }}"
-          git push
+          git commit -m "logmind: aggregate decisions from #${PR_NUMBER}"
+
+          # Try direct push; if branch protection rejects it, fall back to a PR
+          # so the aggregation still lands (just gated on a maintainer merge).
+          if git push 2>/tmp/push.err; then
+            echo "✓ Aggregated directly to ${BASE_REF}"
+            exit 0
+          fi
+          if grep -qE "protected branch|cannot lock ref|GH013" /tmp/push.err; then
+            BRANCH="logmind/aggregate-${PR_NUMBER}"
+            git checkout -b "$BRANCH"
+            git push -u origin "$BRANCH"
+            gh pr create \
+              --base "$BASE_REF" \
+              --head "$BRANCH" \
+              --title "logmind: aggregate decisions from #${PR_NUMBER}" \
+              --body "Auto-aggregation. Direct push to ${BASE_REF} was blocked by branch protection — opening as a PR instead. Merge to land the decision-log update."
+            exit 0
+          fi
+          # Some other push failure — surface it.
+          cat /tmp/push.err
+          exit 1

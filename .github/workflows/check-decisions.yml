@@ -57,9 +57,9 @@ jobs:
           echo "Decision log touched: $decision_touched"
 
       - name: Enforce
-        if: steps.diff.outputs.total_lines >= 20 && steps.diff.outputs.decision_touched == '0'
+        if: steps.diff.outputs.total_lines >= 20 && steps.diff.outputs.decision_touched == '0' && !contains(github.event.pull_request.title, '[skip-logmind]')
         run: |
           echo "::error::This PR changes ${{ steps.diff.outputs.total_lines }} lines of non-docs code without updating docs/decisions.md or docs/decisions-branches/<branch>.md."
           echo "::error::Log a decision with: logmind log \"summary\" -r \"reasoning\" -a \"alternative\" -i \"implication\""
-          echo "::error::Or override on a one-off basis by adding [skip-logmind] to the PR title (handled by maintainers)."
+          echo "::error::Or override on a one-off basis by adding [skip-logmind] to the PR title."
           exit 1
