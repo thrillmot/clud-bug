@@ -154,6 +154,35 @@ test('applyToRepo: walks .cursor/rules/*.md', async () => {
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
+test('renderBlock: strictMode undefined renders advisory (matches workflow gate predicate)', () => {
+  // The workflow at templates/workflow*.yml.tmpl reads `JSON.parse(s).strictMode === true`.
+  // Anything other than explicit `true` (undefined, null, false) is advisory.
+  // The block must report the same.
+  const block = renderBlock({ version: '0.5.1' });   // strictMode left undefined
+  assert.match(block, /Strict mode is \*\*off\*\*/);
+  assert.doesNotMatch(block, /Strict mode is \*\*on\*\*/);
+});
+
+test('renderBlock: strictMode null renders advisory', () => {
+  const block = renderBlock({ version: '0.5.1', strictMode: null });
+  assert.match(block, /Strict mode is \*\*off\*\*/);
+});
+
+test('regression: v0.3-shaped manifest (lastUpdate set, strictMode undefined) renders "off"', async () => {
+  // This pins the v0.3 advisory upgrade path. bin/clud-bug.js#runInit
+  // deliberately keeps strictMode undefined when lastUpdate already exists
+  // (test/cli.test.js: "existing v0.3 advisory install ... is NOT auto-flipped").
+  // The brief must match the actual gate state, not the v0.4 default.
+  const dir = await makeRepo({});
+  try {
+    // Simulate what bin/clud-bug.js passes for a v0.3 manifest: strictMode === true is false.
+    await applyToRepo(dir, { version: '0.5.1', strictMode: false /* === (undefined === true) */ });
+    const agents = await readFile(join(dir, 'AGENTS.md'), 'utf8');
+    assert.match(agents, /Strict mode is \*\*off\*\*/);
+    assert.doesNotMatch(agents, /Strict mode is \*\*on\*\*/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('applyToRepo: does not create CLAUDE.md or other tool files when absent', async () => {
   const dir = await makeRepo({});
   try {

@@ -211,9 +211,13 @@ async function runInit(args) {
   // / Cline / Continue rules files get the same block appended IF they
   // already exist (we don't proliferate stubs the user didn't ask for).
   log('  briefing other agents (AGENTS.md / CLAUDE.md)...');
+  // Pass `=== true` (not `!== false`) so the rendered block matches the
+  // workflow's gate predicate exactly. A v0.3 advisory upgrade where
+  // strictMode is undefined renders "off" — which is what the workflow
+  // actually does on that manifest.
   const agentDocs = await applyAgentDocs(cwd, {
     version: manifest.lastUpdateVersion,
-    strictMode: manifest.strictMode !== false,
+    strictMode: manifest.strictMode === true,
   });
   for (const p of agentDocs.created) log(`    created ${p}`);
   for (const p of agentDocs.touched) log(`    updated ${p}`);
