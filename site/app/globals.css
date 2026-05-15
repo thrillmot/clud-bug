@@ -159,9 +159,9 @@ main { position: relative; z-index: 1; }
   letter-spacing: 0.04em;
   font-weight: 500;
 }
-.plate-gloss em + em { margin-left: 0; }
-.plate-gloss em::after { content: ' · '; color: var(--ink-faint); }
-.plate-gloss em:last-of-type::after { content: ''; }
+/* The colons in the JSX are the natural separator. No ::after pseudo-
+   element needed — adding one collided with the literal ":" producing
+   an awkward "·:" adjacency. */
 
 .bug-pin {
   font-size: 3.5rem;
