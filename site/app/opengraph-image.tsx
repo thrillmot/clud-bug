@@ -15,17 +15,48 @@ const LEAF = '#5a8a2e';
 const CITRUS = '#d97a2e';
 
 async function loadFraunces() {
-  // Italic + light weight to match site display headings
+  // Google Fonts CSS2 emits one @font-face block per (style × unicode-range subset),
+  // so for an italic+normal request we typically get 4 blocks: italic-latin,
+  // italic-latin-ext, normal-latin, normal-latin-ext. We need to parse each
+  // block's font-style to know which woff2 belongs to which variant — taking the
+  // first two woff2 URLs is wrong, as both could be e.g. normal-latin-ext +
+  // italic-latin-ext, missing one variant entirely.
   const url = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;1,9..144,300&display=swap';
   const css = await (await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } })).text();
-  const woffs = [...css.matchAll(/url\((https:[^)]+\.woff2)\)\s+format\('woff2'\)/g)].map((m) => m[1]);
-  return Promise.all(
-    woffs.slice(0, 2).map(async (u, i) => {
-      const buf = await (await fetch(u)).arrayBuffer();
-      const style: 'normal' | 'italic' = i === 0 ? 'normal' : 'italic';
-      return { name: 'Fraunces', data: buf, weight: 300 as 300, style };
-    }),
-  );
+
+  // Match each @font-face { ... } block separately, then pick a representative
+  // woff2 (the latin subset, which is the smallest unicode-range and covers
+  // English) for each style.
+  const blocks = [...css.matchAll(/@font-face\s*\{([^}]+)\}/g)].map((m) => m[1]);
+
+  function pickFor(style: 'normal' | 'italic'): string | null {
+    const candidates = blocks.filter((b) => {
+      const styleMatch = b.match(/font-style:\s*([a-z]+)/);
+      return styleMatch && styleMatch[1] === style;
+    });
+    if (candidates.length === 0) return null;
+    // Prefer the basic latin subset (its unicode-range starts with U+0000 / U+0020).
+    // Fall back to the first candidate if no clear winner.
+    const latin = candidates.find((b) => /unicode-range:\s*U\+(?:0000|0020|0001)/i.test(b));
+    const chosen = latin || candidates[0];
+    const url = chosen.match(/url\((https:[^)]+\.woff2)\)\s+format\('woff2'\)/);
+    return url ? url[1] : null;
+  }
+
+  const normalUrl = pickFor('normal');
+  const italicUrl = pickFor('italic');
+  if (!normalUrl || !italicUrl) {
+    throw new Error(`Failed to extract Fraunces font URLs (normal=${!!normalUrl}, italic=${!!italicUrl})`);
+  }
+
+  const [normalBuf, italicBuf] = await Promise.all([
+    fetch(normalUrl).then((r) => r.arrayBuffer()),
+    fetch(italicUrl).then((r) => r.arrayBuffer()),
+  ]);
+  return [
+    { name: 'Fraunces', data: normalBuf, weight: 300 as 300, style: 'normal' as 'normal' },
+    { name: 'Fraunces', data: italicBuf, weight: 300 as 300, style: 'italic' as 'italic' },
+  ];
 }
 
 export default async function OG() {
