@@ -13,6 +13,7 @@ import {
   readManifest, writeManifest, removeSkill, listInstalled, diffManifest,
 } from '../lib/skills.js';
 import { computeAuditFileSet, renderAuditHeader } from '../lib/audit.js';
+import { runUpdate } from '../lib/update.js';
 
 const PKG_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TEMPLATES = join(PKG_ROOT, 'templates');
@@ -52,6 +53,8 @@ Commands:
   refresh               Re-survey, diff against your collection, prompt to update.
   audit                 Walk the whole habitat (or a recent slice) and prepare a report stub.
                         Use --since / --changed-in / --scope to narrow.
+  update                Re-render workflows + refresh baseline specimens to the latest shipped
+                        templates. Custom and skills.sh-installed specimens left alone.
 
 Options:
   --offline             Skip skills.sh; pin only the bundled baseline specimens.
@@ -83,6 +86,7 @@ async function main() {
     case 'remove':  return runRemove(args);
     case 'refresh': return runRefresh(args);
     case 'audit':   return runAudit(args);
+    case 'update':  return runUpdateCmd(args);
     default:
       process.stderr.write(`Unknown command: ${cmd || '(none)'}\n\n${HELP}`);
       process.exit(2);
@@ -158,9 +162,26 @@ async function runInit(args) {
   await writeFile(auditPath, auditTmpl);
   log(`    wrote ${rel(cwd, auditPath)}`);
 
+  // Install the self-update workflow. Cron weekly Mondays 12:00 UTC; opens
+  // a PR if a newer clud-bug version is published. Disable by deleting the
+  // file or pinning via .claude/skills/.clud-bug.json.
+  const selfUpdateTmpl = await readFile(join(TEMPLATES, 'self-update.yml.tmpl'), 'utf8');
+  const selfUpdatePath = join(cwd, '.github', 'workflows', 'clud-bug-self-update.yml');
+  await writeFile(selfUpdatePath, selfUpdateTmpl);
+  log(`    wrote ${rel(cwd, selfUpdatePath)}`);
+
+  // Stamp the manifest with the version that did the install so the
+  // self-update workflow can compare. (writeSkills only writes installed
+  // entries; we add a separate stamp here.)
+  const skillsDirPath = join(cwd, '.claude', 'skills');
+  const manifest = await readManifest(skillsDirPath);
+  manifest.lastUpdateVersion = await readPkgVersion();
+  manifest.lastUpdate = new Date().toISOString();
+  await writeManifest(skillsDirPath, manifest);
+
   if (args.commit) {
     log('  committing...');
-    spawnSync('git', ['add', '.claude', '.github/workflows/clud-bug-review.yml', '.github/workflows/clud-bug-audit.yml'], { cwd, stdio: 'inherit' });
+    spawnSync('git', ['add', '.claude', '.github/workflows/clud-bug-review.yml', '.github/workflows/clud-bug-audit.yml', '.github/workflows/clud-bug-self-update.yml'], { cwd, stdio: 'inherit' });
     spawnSync('git', ['commit', '-m', 'Add clud-bug 🐛 — a field guide to specimens crawling your code'], { cwd, stdio: 'inherit' });
   }
 
@@ -177,6 +198,7 @@ async function runInit(args) {
   log('');
   log('Drop your own .claude/skills/<name>/SKILL.md files anytime — they get pinned automatically.');
   log('For a whole-repo walk: Actions tab → Clud Bug 🐛 Audit → Run workflow.');
+  log('Self-update is on (weekly Mondays 12:00 UTC). Pin via "pinVersion" in .claude/skills/.clud-bug.json.');
 }
 
 async function promptForSkills(recommended) {
@@ -332,6 +354,37 @@ async function runRefresh(args) {
   if (diff.add.length) await writeSkills(skillsDir, diff.add, client);
   for (const entry of diff.remove) await removeSkill(skillsDir, entry.slug);
   log('  ✓ collection updated. Commit + push to apply on the next PR.');
+}
+
+async function runUpdateCmd(_args) {
+  const cwd = process.cwd();
+  const ourVersion = await readPkgVersion();
+  log(`🐛 Refreshing the field kit (${ourVersion}).`);
+
+  const result = await runUpdate({
+    cwd,
+    templatesDir: TEMPLATES,
+    baselineDir: BASELINE_DIR,
+    ourVersion,
+  });
+
+  if (result.missing === 'init') {
+    log('  No clud-bug installation detected. Run `clud-bug init` first.');
+    return;
+  }
+
+  if (result.changed.length === 0) {
+    log('  Already current. Nothing to update.');
+    return;
+  }
+
+  log(`  ✓ Updated ${result.changed.length} file${result.changed.length === 1 ? '' : 's'}:`);
+  for (const c of result.changed) log(`     • ${rel(cwd, c.path)}  (${c.label})`);
+  if (result.unchanged.length > 0) {
+    log(`  ${result.unchanged.length} file${result.unchanged.length === 1 ? ' was' : 's were'} already current.`);
+  }
+  log('');
+  log('Commit + push to apply the refreshed kit on the next PR.');
 }
 
 async function runAudit(args) {
