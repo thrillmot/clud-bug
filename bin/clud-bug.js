@@ -8,7 +8,10 @@ import { stdin as input, stdout as output } from 'node:process';
 
 import { detect, buildDescriptionLine } from '../lib/detect.js';
 import { renderFile, pickTemplate } from '../lib/render.js';
-import { SkillsClient, rankAndCap, writeSkills, loadBaseline } from '../lib/skills.js';
+import {
+  SkillsClient, rankAndCap, writeSkills, writeSkill, loadBaseline,
+  readManifest, writeManifest, removeSkill, listInstalled, diffManifest,
+} from '../lib/skills.js';
 
 const PKG_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TEMPLATES = join(PKG_ROOT, 'templates');
@@ -27,17 +30,24 @@ function parseArgs(argv) {
   return args;
 }
 
-const HELP = `clud-bug — install Claude PR review with project-aware skills
+const HELP = `clud-bug — Claude PR review with project-aware skills
 
 Usage:
-  npx clud-bug init [options]
+  npx clud-bug <command> [options]
+
+Commands:
+  init                  First-time setup: detect repo, install skills, write workflow.
+  list                  Show currently installed skills (baseline / remote / custom).
+  add <source/name>     Install one skill from skills.sh (e.g. vercel-labs/skills/next-best-practices).
+  remove <slug>         Remove an installed skill (refuses if it's a custom skill).
+  refresh               Re-query skills.sh and diff against installed; prompt to update.
 
 Options:
-  --offline       Skip skills.sh; install only the bundled baseline skills.
-  --accept-all,-y Accept the recommended skill set without prompting.
-  --commit        git add + commit the generated files when done.
-  --help,-h       Show this help.
-  --version,-v    Show version.
+  --offline             Skip skills.sh; only use bundled baseline skills (init/refresh).
+  --accept-all,-y       Accept recommendations without prompting.
+  --commit              git add + commit the generated files when done (init only).
+  --help,-h             Show this help.
+  --version,-v          Show version.
 `;
 
 async function readPkgVersion() {
@@ -51,12 +61,16 @@ async function main() {
   if (args.version) { process.stdout.write((await readPkgVersion()) + '\n'); return; }
 
   const cmd = args._[0];
-  if (cmd !== 'init') {
-    process.stderr.write(`Unknown command: ${cmd || '(none)'}\n\n${HELP}`);
-    process.exit(2);
+  switch (cmd) {
+    case 'init':    return runInit(args);
+    case 'list':    return runList(args);
+    case 'add':     return runAdd(args);
+    case 'remove':  return runRemove(args);
+    case 'refresh': return runRefresh(args);
+    default:
+      process.stderr.write(`Unknown command: ${cmd || '(none)'}\n\n${HELP}`);
+      process.exit(2);
   }
-
-  await runInit(args);
 }
 
 async function runInit(args) {
@@ -161,6 +175,139 @@ async function promptForSkills(recommended) {
   } finally {
     rl.close();
   }
+}
+
+async function runList(_args) {
+  const skillsDir = join(process.cwd(), '.claude', 'skills');
+  const groups = await listInstalled(skillsDir);
+  const total = groups.baseline.length + groups.remote.length + groups.custom.length;
+  if (total === 0) {
+    log('No skills installed yet. Run `clud-bug init` to get started.');
+    return;
+  }
+  log(`🐛 ${total} skill${total === 1 ? '' : 's'} in .claude/skills/`);
+  if (groups.baseline.length) {
+    log('');
+    log('Baseline (always installed):');
+    for (const s of groups.baseline) log(`  • ${s.slug}`);
+  }
+  if (groups.remote.length) {
+    log('');
+    log('From skills.sh:');
+    for (const s of groups.remote) log(`  • ${s.slug}  ${s.source ? `[${s.source}]` : ''}`);
+  }
+  if (groups.custom.length) {
+    log('');
+    log('Custom (yours, never auto-modified):');
+    for (const s of groups.custom) {
+      log(`  • ${s.slug}${s.description ? `  — ${s.description}` : ''}`);
+    }
+  }
+}
+
+async function runAdd(args) {
+  const ref = args._[1];
+  if (!ref || !ref.includes('/')) {
+    process.stderr.write('Usage: clud-bug add <source/name>  (e.g. vercel-labs/skills/next-best-practices)\n');
+    process.exit(2);
+  }
+  // Last segment is the skill name; everything before is the source repo path.
+  const lastSlash = ref.lastIndexOf('/');
+  const source = ref.slice(0, lastSlash);
+  const name = ref.slice(lastSlash + 1);
+  const skillsDir = join(process.cwd(), '.claude', 'skills');
+  log(`  fetching ${source}/${name} from skills.sh...`);
+  const client = new SkillsClient();
+  const entry = await writeSkill(skillsDir, { source, name, kind: 'remote' }, client);
+  const manifest = await readManifest(skillsDir);
+  const merged = { version: 1, installed: [...manifest.installed.filter(e => e.slug !== entry.slug), entry] };
+  await writeManifest(skillsDir, merged);
+  log(`  ✓ installed ${entry.slug} → .claude/skills/${entry.slug}/SKILL.md`);
+  log('  Commit + push to apply on the next PR.');
+}
+
+async function runRemove(args) {
+  const slug = args._[1];
+  if (!slug) {
+    process.stderr.write('Usage: clud-bug remove <slug>  (run `clud-bug list` to see installed slugs)\n');
+    process.exit(2);
+  }
+  const skillsDir = join(process.cwd(), '.claude', 'skills');
+  const entry = await removeSkill(skillsDir, slug);
+  log(`  ✓ removed ${entry.slug}${entry.kind === 'baseline' ? ' (baseline — will return on next init)' : ''}`);
+}
+
+async function runRefresh(args) {
+  const cwd = process.cwd();
+  const skillsDir = join(cwd, '.claude', 'skills');
+  const manifest = await readManifest(skillsDir);
+  if (manifest.installed.length === 0) {
+    log('No clud-bug-managed skills found. Run `clud-bug init` first.');
+    return;
+  }
+
+  log('  detecting repo signals...');
+  const signals = await detect(cwd);
+  log(`    primary language: ${signals.primaryLanguage || '(unknown)'}`);
+  log(`    search terms:     ${signals.searchTerms.join(', ') || '(none)'}`);
+
+  const baseline = await loadBaseline(BASELINE_DIR);
+  let curated = [];
+  let searched = [];
+  if (args.offline) {
+    log('  --offline: skipping skills.sh — only baseline additions will be diffed; existing remote skills are preserved');
+  } else {
+    const client = new SkillsClient();
+    let curatedErr, searchedErr;
+    [curated, searched] = await Promise.all([
+      client.curated().catch(err => { curatedErr = err; return []; }),
+      client.search(signals.searchTerms).catch(err => { searchedErr = err; return []; }),
+    ]);
+    if (curatedErr || searchedErr) {
+      const err = curatedErr || searchedErr;
+      warn(`skills.sh unreachable (${err.message})`);
+      warn('refusing to compute removals — an empty API response would look like "delete everything from skills.sh".');
+      warn('Try again later, or run with --offline to install only baseline updates.');
+      process.exit(1);
+    }
+  }
+  const recommended = rankAndCap(curated, searched, baseline);
+  const diff = diffManifest(manifest, recommended);
+
+  // In --offline mode the recommendation set isn't authoritative (we only have
+  // baseline locally), so any "missing from recommendations" entry is a false
+  // positive. Suppress removals to avoid mass-deleting the user's remote skills.
+  if (args.offline) diff.remove = [];
+
+  log('');
+  log(`  add:       ${diff.add.length}`);
+  log(`  remove:    ${diff.remove.length} (custom skills untouched)`);
+  log(`  unchanged: ${diff.unchanged.length}`);
+
+  if (diff.add.length === 0 && diff.remove.length === 0) {
+    log('');
+    log('Nothing to update. Skills are in sync with skills.sh recommendations.');
+    return;
+  }
+
+  log('');
+  for (const s of diff.add)    log(`  + ${s.name} [${s.source || s.kind}]`);
+  for (const s of diff.remove) log(`  - ${s.slug} [${s.source || s.kind}]`);
+
+  if (!args.acceptAll) {
+    const rl = createInterface({ input, output });
+    const answer = await rl.question('\nApply these changes? [y/N] ');
+    rl.close();
+    if (answer.trim().toLowerCase() !== 'y') {
+      log('Aborted. No files changed.');
+      return;
+    }
+  }
+
+  const client = new SkillsClient();
+  if (diff.add.length) await writeSkills(skillsDir, diff.add, client);
+  for (const entry of diff.remove) await removeSkill(skillsDir, entry.slug);
+  log('  ✓ skills updated. Commit + push to apply on the next PR.');
 }
 
 function rel(from, to) {
