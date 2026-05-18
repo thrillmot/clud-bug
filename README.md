@@ -164,20 +164,64 @@ If you want clud-bug to review fork PRs too, you have two options:
 1. **Maintainer re-pushes the branch** to your repo as a non-fork branch, and the review runs.
 2. **Switch the trigger to `pull_request_target`** (advanced) — this gives the workflow access to secrets but runs against the *base* ref, not the PR's code. To safely review the PR's actual code, follow [`anthropics/claude-code-action` security.md](https://github.com/anthropics/claude-code-action/blob/main/docs/security.md): check out the PR head into a **subdirectory** (not the workspace root) and pass it via `--add-dir`. Skipping this is a code-execution risk.
 
-clud-bug's generated workflow uses `pull_request` by default. If you understand the trade-offs, edit the trigger yourself.
+Concretely, the safe shape:
+
+```yaml
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+
+jobs:
+  clud-bug-review:
+    steps:
+      - uses: actions/checkout@v6  # base ref — trusted
+      - uses: actions/checkout@v6  # PR head — UNTRUSTED, into a subdir
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr-head
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_args: --add-dir pr-head
+          # ... rest of args
+```
+
+The key invariant: the base checkout (with secrets in scope) lives at the workspace root; the PR head (untrusted user code) only ever lives in a subdirectory the action explicitly opts into via `--add-dir`. Any deviation — checking out the PR head at the root, running `npm install` from the subdir, etc. — re-opens the code-execution risk.
+
+clud-bug's generated workflow uses `pull_request` (not `pull_request_target`) by default. If you understand the trade-offs and want to handle fork PRs, edit the trigger yourself using the shape above.
 
 ## When you edit the workflow
 
-clud-bug uses [`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action), which **refuses to run when the PR being reviewed modifies the action's own workflow file**. That's a security guard against PRs that try to neuter the reviewer or exfiltrate secrets via prompt injection. If you edit `.github/workflows/clud-bug-review.yml` (or any clud-bug workflow), expect this check to fail with a 401 — `App token exchange failed: Workflow validation failed`. That's the documented behavior, not a bug. Merge the workflow change in isolation, and subsequent PRs work normally.
+> **TL;DR:** if you see `App token exchange failed: Workflow validation failed (401)` on a PR that edits a clud-bug workflow file, that's **expected and protective** — not a bug in your PR. Read on.
 
-To make this easier, `clud-bug edit-workflow` packages the workflow change into a clean PR for you:
+clud-bug uses [`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action), which **refuses to run when the PR being reviewed modifies the action's own workflow file**. That's a security guard: without it, a PR could neuter the reviewer or exfiltrate secrets via prompt injection in the workflow file itself.
+
+### What you'll see
+
+When you push a PR that touches `.github/workflows/clud-bug-review.yml` (or any other clud-bug workflow):
+
+- The `clud-bug-review` check fails with `App token exchange failed: 401 Unauthorized — Workflow validation failed. The workflow file must exist and have identical content to the version on the repository's default branch.`
+- You'll get a GitHub email titled something like **"[thrillmot/your-repo] Run failed: Clud Bug 🐛 Crawls Your Code — `<branch-name>`"** — same wording for every workflow failure, so it doesn't visually distinguish "this is the expected self-mod guard" from "real failure."
+
+### How to merge
+
+If the PR contains **only** workflow edits, this is the expected path:
+
+1. A maintainer reviews the diff directly (the bot can't).
+2. Merge via admin override (`gh pr merge --admin` or the "Merge without waiting for requirements" button) — the failing `clud-bug-review` check is the bot refusing to review *itself*, not a real defect.
+3. Subsequent PRs on the new workflow work normally — the validation gate compares against `main`, so once your edit is on `main`, the gate passes.
+
+If the PR contains workflow edits **mixed with other code changes**, split them. The bot can't review either half while the workflow edit is in the diff, so any real findings get masked.
+
+### The helper command
+
+`clud-bug edit-workflow` packages the workflow change into a clean PR for you, refusing to run if your working tree has any non-workflow changes:
 
 ```bash
 # Edit .github/workflows/clud-bug-*.yml as you like, then:
 clud-bug edit-workflow
 ```
 
-The command refuses to run if your working tree has any non-workflow changes — keeping the PR scoped to just the workflow edit.
+This keeps the merge ceremony scoped to just the workflow edit.
 
 ## Verifying it works
 
