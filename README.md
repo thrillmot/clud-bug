@@ -36,16 +36,22 @@ The naturalist arrives at your repo, surveys the habitat, and assembles a field 
 4. **Writes** the chosen specimens to `.claude/skills/<name>/SKILL.md` (Claude Code auto-loads them in the GitHub Action).
 5. **Drafts the field kit** at `.github/workflows/clud-bug-review.yml` with your project description filled in and the right permissions/tool allowlist for `gh pr comment` to actually post.
 6. **Briefs other agents** by adding a `<!-- clud-bug-start -->` block to `AGENTS.md` (creating it if missing — it's the cross-tool canonical), and idempotently to `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.continuerules`, and `.cursor/rules/*.md` where they already exist. Re-runs replace the prior block in place. Files you didn't already have are left uncreated — no proliferating stubs.
+7. **Offers to enable `required_conversation_resolution`** on your default branch. Clud Bug auto-resolves its own review threads when fixes land — but that only gates merges when conversation-resolution is required. Init detects the current state via `gh`, prompts to enable (auto-yes with `--accept-all`), and degrades to an advisory message if you lack admin perms / `gh` isn't installed / the branch has no base protection rule. Pass `--no-set-protection` to skip the prompt entirely — for repos that manage branch protection via ruleset or org policy.
 
 ## CLI options
 
 ```
 npx clud-bug init [options]
 
-  --offline       Skip skills.sh; install only the bundled baseline skills.
-  --accept-all,-y Accept the recommended skill set without prompting.
-  --commit        git add + commit the generated files when done.
-  --help,-h       Show help.
+  --offline             Skip skills.sh; install only the bundled baseline skills.
+  --accept-all,-y       Accept the recommended skill set (and the
+                        branch-protection prompt) without prompting.
+  --no-set-protection   Skip the prompt that offers to enable
+                        required_conversation_resolution on the default
+                        branch. For repos that manage branch protection
+                        via ruleset or org policy.
+  --commit              git add + commit the generated files when done.
+  --help,-h             Show help.
 ```
 
 ## Staying up to date

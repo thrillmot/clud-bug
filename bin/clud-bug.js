@@ -16,6 +16,7 @@ import { computeAuditFileSet, renderAuditHeader } from '../lib/audit.js';
 import { runUpdate } from '../lib/update.js';
 import { getPendingWorkflowEdits, makeBranchName, git as gitCmd } from '../lib/edit-workflow.js';
 import { applyToRepo as applyAgentDocs } from '../lib/agents-md.js';
+import { detectRepo, detectDefaultBranch, getProtectionState, enableConversationResolution } from '../lib/branch-protection.js';
 
 const PKG_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TEMPLATES = join(PKG_ROOT, 'templates');
@@ -25,6 +26,7 @@ function parseArgs(argv) {
   const args = {
     _: [], offline: false, acceptAll: false, commit: false, help: false, version: false,
     since: null, changedIn: null, scopes: [], out: null,
+    setProtection: true,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -37,6 +39,7 @@ function parseArgs(argv) {
     else if (a === '--changed-in') args.changedIn = argv[++i];
     else if (a === '--scope') args.scopes.push(argv[++i]);
     else if (a === '--out') args.out = argv[++i];
+    else if (a === '--no-set-protection') args.setProtection = false;
     else args._.push(a);
   }
   return args;
@@ -64,6 +67,10 @@ Options:
   --offline             Skip skills.sh; pin only the bundled baseline specimens.
   --accept-all,-y       Accept the recommended specimens without prompting.
   --commit              git add + commit the generated kit when done (init only).
+  --no-set-protection   Skip the prompt that offers to enable
+                        required_conversation_resolution on the default
+                        branch (init only). Use for repos that manage
+                        branch protection via ruleset or org policy.
   --since <date>        Audit only files changed in commits after <date> (git date string).
   --changed-in <dur>    Audit only files changed in the past <dur>: 7d, 2w, 1mo, 1y. (audit only)
   --scope <glob>        Limit audit to files matching <glob>; repeatable. (audit only)
@@ -236,6 +243,13 @@ async function runInit(args) {
     spawnSync('git', ['commit', '-m', 'Add clud-bug 🐛 — a field guide to specimens crawling your code'], { cwd, stdio: 'inherit' });
   }
 
+  // Offer to enable required_conversation_resolution on the default
+  // branch. clud-bug auto-resolves its own review threads when fixes
+  // land — without this setting, that doesn't gate merges. Skipped on
+  // --no-set-protection for repos that manage protection via ruleset
+  // or org policy.
+  await runInitBranchProtection(args);
+
   log('');
   log('Field kit assembled. Next:');
   log('  1. Set ANTHROPIC_API_KEY in your repo secrets:');
@@ -276,6 +290,114 @@ async function promptForSkills(recommended) {
   } finally {
     rl.close();
   }
+}
+
+// Branch-protection setup step at the end of `clud-bug init`.
+// Offers to enable required_conversation_resolution on the default
+// branch via gh API. Skipped cleanly when --no-set-protection is
+// passed. Failure modes (no admin perms, no base protection rule,
+// network error) all degrade to advisory log messages — they never
+// fail the init run.
+//
+// gh and prompt are injectable for tests (defaults to spawning real
+// gh + reading from real stdin).
+async function runInitBranchProtection(args, { gh, prompt } = {}) {
+  if (!args.setProtection) {
+    log('');
+    log('🐛 Branch protection: skipped (--no-set-protection).');
+    return;
+  }
+  log('');
+  log('🐛 Branch protection');
+
+  // Detect repo + default branch. If gh isn't installed or the local
+  // dir isn't a github repo, treat as advisory and move on.
+  let owner, repo, branch;
+  try {
+    ({ owner, repo } = await detectRepo({ gh }));
+    branch = await detectDefaultBranch({ owner, repo, gh });
+  } catch (err) {
+    log(`  Could not detect repo/branch (${err.message.split('\n')[0]}). Skipping.`);
+    log('  You can enable it manually: gh api -X POST repos/<owner>/<repo>/branches/<default>/protection/required_conversation_resolution');
+    return;
+  }
+
+  log(`  Default branch: ${branch}`);
+
+  // Inspect current state.
+  const current = await getProtectionState({ owner, repo, branch, gh });
+  if (current.state === 'enabled') {
+    log('  required_conversation_resolution: already on — your repo is all set.');
+    return;
+  }
+  if (current.state === 'forbidden') {
+    log('  Could not read branch protection (no admin perms). Ask the repo owner to enable required_conversation_resolution, or re-run with --no-set-protection to silence this prompt.');
+    return;
+  }
+  if (current.state === 'unknown') {
+    log(`  Could not read branch protection (${current.reason}). Skipping.`);
+    return;
+  }
+
+  // Short-circuit on no-protection BEFORE prompting. The single-flag
+  // POST endpoint requires a base protection rule on the branch — if
+  // there's none, enableConversationResolution would just 404. Skip
+  // the prompt and go straight to the actionable guidance (set up
+  // basic protection first, then re-run).
+  if (current.state === 'no-protection') {
+    log('  required_conversation_resolution: not set (no base protection rule on this branch)');
+    log('  Cannot enable yet: this branch has no base protection rule.');
+    log(`    Set one up first: Settings → Branches → Add rule for ${branch}`);
+    log('    Then re-run clud-bug init (or toggle the setting in the GUI).');
+    return;
+  }
+
+  // current.state is 'disabled'.
+  log('  required_conversation_resolution: not set');
+
+  // Decide whether to prompt.
+  let shouldEnable;
+  if (args.acceptAll) {
+    // --accept-all is a real side-effect flag here: it flips a
+    // merge-gating repo setting. Make that explicit in the log so
+    // CI users running `clud-bug init --accept-all` see exactly
+    // what's happening instead of silently noticing later.
+    log('  --accept-all: will enable required_conversation_resolution. Pass --no-set-protection to skip.');
+    shouldEnable = true;
+  } else {
+    const ask = prompt ?? (async (q) => {
+      const rl = createInterface({ input, output });
+      try { return await rl.question(q); } finally { rl.close(); }
+    });
+    log('');
+    log('  Clud Bug auto-resolves its own review threads when fixes land.');
+    log('  Without required_conversation_resolution, that doesn\'t actually gate merges.');
+    const answer = await ask(`  Enable required_conversation_resolution on ${branch}? [Y/n] `);
+    shouldEnable = !['n', 'no'].includes(answer.trim().toLowerCase());
+  }
+
+  if (!shouldEnable) {
+    log('  Skipped. Re-run with --accept-all or set it manually anytime.');
+    return;
+  }
+
+  const result = await enableConversationResolution({ owner, repo, branch, gh });
+  if (result.ok) {
+    log('  ✓ Enabled required_conversation_resolution.');
+    return;
+  }
+  if (result.state === 'no-protection') {
+    log('  Cannot enable: this branch has no base protection rule. Set up basic branch protection first:');
+    log(`    Settings → Branches → Add rule for ${branch}`);
+    log('  Then re-run clud-bug init (or just toggle the setting in the GUI).');
+    return;
+  }
+  if (result.state === 'forbidden') {
+    log('  Cannot enable: you do not have admin permissions on this repository.');
+    log('  Ask the repo owner to enable it, or re-run with --no-set-protection to silence this prompt.');
+    return;
+  }
+  log(`  Cannot enable (${result.reason}). You can enable it manually anytime.`);
 }
 
 async function runList(_args) {

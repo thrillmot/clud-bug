@@ -15,6 +15,7 @@ PR's CI run, so this file is always coherent with current `main`.
 
 ## 2026-05
 
+- **2026-05-18** — clud-bug init offers required_conversation_resolution setup (issue #43 item 2) *(feat/init-branch-protection)* — [decisions-branches/feat__init-branch-protection.md](decisions-branches/feat__init-branch-protection.md)
 - **2026-05-18** — Status block at the top of every clud-bug review (issue #43 item 1) *(feat/review-status-block)* — [decisions-branches/feat__review-status-block.md](decisions-branches/feat__review-status-block.md)
 - **2026-05-15** — Adopt logmind v0.2 derived-file architecture (drop aggregator workflow) *(feat/logmind-0.2.0)* — [decisions-branches/feat__logmind-0.2.0.md](decisions-branches/feat__logmind-0.2.0.md)
 - **2026-05-15** — Collapse npm-dist-tag into npm-publish (single TP entry covers both) *(ci/unify-publish-and-promote)* — [decisions-branches/ci__unify-publish-and-promote.md](decisions-branches/ci__unify-publish-and-promote.md)
