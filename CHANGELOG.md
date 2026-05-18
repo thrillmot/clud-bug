@@ -2,6 +2,14 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **`# clud-bug-template-version: v1` markers** in every shipped workflow template (`workflow.yml.tmpl`, `workflow-ts`, `workflow-py`, `audit.yml.tmpl`, `self-update.yml.tmpl`). Inert today — purely informational. Enables future idempotent-refresh logic in `runUpdate`: a v0.5.8+ release can detect "this workflow is from clud-bug v1 templates" vs "user has customized this workflow" and refresh only the former without clobbering customizations. Same pattern logmind shipped in v0.2.1.
+
+### Pending (separate PR)
+- Pinning `anthropics/claude-code-action@v1` via `{{CCA_VERSION}}` placeholder substitution. Requires routing `audit.yml.tmpl` + `self-update.yml.tmpl` through `renderFile` (currently raw `readFile`).
+
 ## [0.5.6] — 2026-05-18
 
 ### Changed
