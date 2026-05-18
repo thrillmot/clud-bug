@@ -2,6 +2,14 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6] — 2026-05-18
+
+### Changed
+- **Bumped `actions/checkout@v5` → `@v6`** in all 5 workflow templates (`workflow.yml.tmpl`, `workflow-ts`, `workflow-py`, `audit.yml.tmpl`, `self-update.yml.tmpl`). v6 ships with Node 24 natively, so the `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'` shim that v5 needed (a workaround for Node 20 deprecation) is gone. Net -10 lines across the templates; one less workaround future maintainers won't understand.
+
+### Added
+- **`Bash(git show:*)`** added to the `--allowedTools` list in `workflow.yml.tmpl` + `workflow-ts.yml.tmpl` + `workflow-py.yml.tmpl`. Defensive — the bot doesn't currently need `git show` (the strict-mode gate uses it from a separate shell step, not inside `claude-code-action`), but future prompt enhancements that read base-ref state from inside the action would silently fail without it.
+
 ## [0.5.5] — 2026-05-18
 
 ### Added
@@ -59,6 +67,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.5.6]: https://github.com/thrillmot/clud-bug/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/thrillmot/clud-bug/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/thrillmot/clud-bug/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/thrillmot/clud-bug/compare/v0.5.2...v0.5.3
