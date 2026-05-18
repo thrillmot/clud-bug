@@ -1,29 +1,44 @@
-# Composite action: clud-bug strict-mode gate.
+# Composite action: clud-bug strict-mode gate + per-skill check-runs.
 #
 # Replaces the ~24 lines of inline shell that v0.5.x rendered into every
 # workflow template. Templates now reference it via:
 #
-#   - uses: thrillmot/clud-bug/.github/actions/strict-mode-gate@v0.5.8
+#   - uses: thrillmot/clud-bug/.github/actions/strict-mode-gate@v0.5.10
 #     if: success()
 #     with:
 #       github-token: ${{ secrets.GITHUB_TOKEN }}
 #
-# What it does (unchanged contract from v0.5.x):
-#   1. Reads .claude/skills/.clud-bug.json from origin/<base_ref> via
-#      `git show` — base, not head, so a PR can't opt itself out of
-#      strict mode by editing its own manifest. Requires fetch-depth: 0
-#      on the workflow's actions/checkout step.
-#   2. If base manifest's strictMode !== true, exit 0 (advisory).
-#   3. Otherwise, read the latest clud-bug[bot] review comment and look
-#      at its FIRST LINE. If it starts with "## 🐛 Clud Bug review —
-#      critical findings", fail the check.
+# Does two things, in order:
+#
+#   1. Strict-mode gate (v0.5.x contract, unchanged): read
+#      .claude/skills/.clud-bug.json from origin/<base_ref> via `git show`
+#      (base, not head, so a PR can't opt itself out of strict mode by
+#      editing its own manifest — requires fetch-depth: 0). If strictMode
+#      is true AND the latest clud-bug[bot] review comment's FIRST LINE
+#      starts with "## 🐛 Clud Bug review — critical findings", fail
+#      the check.
+#
+#   2. Per-skill check-runs (v0.5.10+, Stream BB.3): for each skill in the
+#      base manifest's `strictSkills` array, emit a separate check-run via
+#      the GitHub Checks API. Status is derived from the skill's line in
+#      the "### Per-skill scan" block of the latest review:
+#        - line contains "0 findings" or " n/a " → conclusion=success
+#        - otherwise                              → conclusion=failure
+#      Each emitted check-run shows up in the PR's check list and is
+#      individually gateable in branch protection (`brand-voice-review`,
+#      `pii-and-compliance`, etc.).
+#
+#      strictSkills is OPT-IN: users who don't configure it get the same
+#      behaviour as v0.5.x (no extra check-runs, no UI clutter). The
+#      emitted check-runs require `checks: write` permission on the
+#      workflow's permissions block; templates v4+ grant it automatically.
 #
 # Why a composite (and not a JS action): every input is already a shell
 # string or a `gh api` call — no Node deps, no compilation, no separate
 # release pipeline. The cost is one fewer abstraction; the win is that
 # changes to the gate ship in the same repo + tag as the templates.
-name: 'clud-bug strict-mode gate'
-description: 'Fail the check on critical findings if base manifest has strictMode: true.'
+name: 'clud-bug strict-mode gate + per-skill check-runs'
+description: 'Fail the check on critical findings if base manifest has strictMode: true, and emit per-skill check-runs for strictSkills.'
 
 inputs:
   github-token:
@@ -38,6 +53,7 @@ runs:
   using: 'composite'
   steps:
     - name: 'Strict mode — fail check on critical findings'
+      id: strict-mode-gate
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
@@ -74,3 +90,110 @@ runs:
           echo "::error::See the latest Clud Bug review comment for details. Push a fix and the gate will clear on the next run."
           exit 1
         fi
+
+    - name: 'Per-skill check-runs (BB.3)'
+      # Always run after the gate — even on strict-mode failure, the
+      # per-skill check-runs are still useful signal. The gate step can
+      # have failed; this step runs anyway and the workflow's overall
+      # status reflects the gate, not this step's per-skill outcomes
+      # (per-skill outcomes surface via the check-runs themselves).
+      if: always()
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        BOT_LOGIN: ${{ inputs.bot-login }}
+      run: |
+        # Re-read base manifest. (Step boundary means we can't share the
+        # variable from the gate step; one extra git-show is cheap.)
+        BASE_MANIFEST=$(git show "origin/${{ github.base_ref }}:.claude/skills/.clud-bug.json" 2>/dev/null) || {
+          echo "::warning::Per-skill check-runs disabled — base manifest not found on ${{ github.base_ref }}."
+          exit 0
+        }
+
+        # Extract the strictSkills array. Emits one line per skill on stdout.
+        # No strictSkills → empty stdout → no check-runs emitted (opt-in).
+        STRICT_SKILLS=$(echo "$BASE_MANIFEST" | node -e "
+          let s='';
+          process.stdin.on('data', c => s += c);
+          process.stdin.on('end', () => {
+            try {
+              const m = JSON.parse(s);
+              const list = Array.isArray(m.strictSkills) ? m.strictSkills : [];
+              for (const name of list) {
+                if (typeof name === 'string' && name.trim()) console.log(name.trim());
+              }
+            } catch (e) { /* malformed manifest → no check-runs, noop */ }
+          });
+        ")
+
+        if [ -z "$STRICT_SKILLS" ]; then
+          echo "No strictSkills configured in base manifest — skipping per-skill check-runs (opt-in feature)."
+          exit 0
+        fi
+
+        # Fetch the latest review comment again (different step, no shared state).
+        LATEST=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments?sort=created&direction=desc&per_page=100" \
+          --jq '[.[] | select(.user.login == env.BOT_LOGIN and (.body | startswith("## 🐛 Clud Bug review")))][0].body // ""')
+
+        if [ -z "$LATEST" ]; then
+          echo "::warning::No clud-bug review comment found yet — skipping per-skill check-runs."
+          exit 0
+        fi
+
+        # Emit one check-run per configured strictSkill. Status comes from
+        # the skill's line in the "### Per-skill scan" block of the review:
+        #   - line contains " 0 findings" OR " n/a " → success
+        #   - any other content (typically "N findings"/"N finding")    → failure
+        # If the skill isn't mentioned in the review at all (because the
+        # bot didn't emit a Per-skill scan block — e.g. an older v2-template
+        # comment), the check-run is emitted with conclusion=neutral and a
+        # text body explaining the absence, so the gate is loud rather than
+        # silently green.
+        EXIT_CODE=0
+        while IFS= read -r SKILL_NAME; do
+          [ -z "$SKILL_NAME" ] && continue
+          # Match the skill's line in the Per-skill scan block. Format:
+          #   - [<skill-name>]: <one-sentence outcome>
+          # The bracket-anchored prefix prevents partial-name collisions
+          # (e.g. "brand-voice-review" not matching "brand-voice").
+          SKILL_LINE=$(echo "$LATEST" | grep -E "^[[:space:]]*-[[:space:]]*\[${SKILL_NAME}\]:" || true)
+
+          CONCLUSION="neutral"
+          SUMMARY="No outcome reported for [${SKILL_NAME}] in the latest clud-bug review."
+          if [ -n "$SKILL_LINE" ]; then
+            # Strip the "  - [name]: " prefix to get the outcome sentence
+            # for the check-run summary.
+            OUTCOME=$(echo "$SKILL_LINE" | sed -E "s/^[[:space:]]*-[[:space:]]*\[${SKILL_NAME}\]:[[:space:]]*//")
+            SUMMARY="$OUTCOME"
+            # Conservative match: "0 findings" or " n/a " (case-insensitive)
+            # → success. Anything else → failure. This treats "1 finding",
+            # "2 critical findings below", etc. all as failure, which is
+            # the intended strict-mode semantics for a per-skill gate.
+            if echo "$SKILL_LINE" | grep -qiE "0 findings|[[:space:]]n/a[[:space:]\.,]"; then
+              CONCLUSION="success"
+            else
+              CONCLUSION="failure"
+              EXIT_CODE=0   # check-run failure surfaces in branch protection, not via exit code here
+            fi
+          fi
+
+          echo "::notice title=clud-bug[skill: ${SKILL_NAME}]::${CONCLUSION} — ${SUMMARY}"
+
+          # Emit the check-run. POST /repos/.../check-runs with head_sha=PR
+          # head. Skill name becomes the check name so it shows up in the
+          # PR's check list and is gateable via branch protection.
+          gh api --method POST "repos/${{ github.repository }}/check-runs" \
+            -f "name=${SKILL_NAME}" \
+            -f "head_sha=${PR_HEAD_SHA}" \
+            -f "status=completed" \
+            -f "conclusion=${CONCLUSION}" \
+            -f "output[title]=clud-bug: ${SKILL_NAME}" \
+            -f "output[summary]=${SUMMARY}" \
+            --silent || {
+              echo "::warning::Failed to emit check-run for ${SKILL_NAME} (this usually means the workflow lacks 'checks: write' permission)."
+            }
+        done <<< "$STRICT_SKILLS"
+
+        exit $EXIT_CODE
