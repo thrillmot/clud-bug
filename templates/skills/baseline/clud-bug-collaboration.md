@@ -76,7 +76,7 @@ move the bot's behavior.
 Don't write generic prose like "be careful with database code." That's
 not actionable. Instead, anchor to specific files + behaviors:
 
-```markdown
+````markdown
 ---
 name: db-query-review
 description: How to review changes under lib/db/. Always flag missing parameterization, N+1 query patterns, and missing transaction boundaries on multi-statement writes.
@@ -113,7 +113,7 @@ apply these rules:
 Cite the specific line. "This is a SQL injection risk" alone isn't
 enough — quote the unsafe interpolation directly and propose the
 parameterized alternative.
-```
+````
 
 That's what "evidence-anchored" looks like: specific file paths, runnable
 code examples for both bad and good, and explicit instructions on what
