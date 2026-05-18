@@ -15,6 +15,7 @@ PR's CI run, so this file is always coherent with current `main`.
 
 ## 2026-05
 
+- **2026-05-18** — Part 2 of v0.5.6 workflow sync: claude-code-review.yml (separate PR for per-bot review coverage) *(workflow/checkout-v6-claude-baseline)* — [decisions-branches/workflow__checkout-v6-claude-baseline.md](decisions-branches/workflow__checkout-v6-claude-baseline.md)
 - **2026-05-18** — Sync repo workflow files with v0.5.6 template change (checkout v6, drop FORCE shim) *(workflow/checkout-v6-repo)* — [decisions-branches/workflow__checkout-v6-repo.md](decisions-branches/workflow__checkout-v6-repo.md)
 - **2026-05-18** — Bump actions/checkout v5 to v6, drop FORCE_JAVASCRIPT shim, defensive git show in allowlist *(feat/checkout-v6-templates)* — [decisions-branches/feat__checkout-v6-templates.md](decisions-branches/feat__checkout-v6-templates.md)
 - **2026-05-18** — Docs polish per audit P2 + P5: 401 framing, fork-PR YAML, custom-skill example *(site/docs-polish-p2-p5)* — [decisions-branches/site__docs-polish-p2-p5.md](decisions-branches/site__docs-polish-p2-p5.md)
