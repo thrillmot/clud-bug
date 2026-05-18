@@ -15,6 +15,7 @@ PR's CI run, so this file is always coherent with current `main`.
 
 ## 2026-05
 
+- **2026-05-18** — Stream Y: extract strict-mode gate into a composite GitHub Action (v0.5.8) *(feat/composite-strict-mode-gate)* — [decisions-branches/feat__composite-strict-mode-gate.md](decisions-branches/feat__composite-strict-mode-gate.md)
 - **2026-05-18** — Implement clud-bug update refresh-mode using template-version markers (v0.5.7) *(feat/update-refresh-mode)* — [decisions-branches/feat__update-refresh-mode.md](decisions-branches/feat__update-refresh-mode.md)
 - **2026-05-18** — Upgrade to logmind v0.2.1 (workflow version pinning) *(feat/logmind-0.2.1)* — [decisions-branches/feat__logmind-0.2.1.md](decisions-branches/feat__logmind-0.2.1.md)
 - **2026-05-18** — Part 2 of v0.5.6 workflow sync: claude-code-review.yml (separate PR for per-bot review coverage) *(workflow/checkout-v6-claude-baseline)* — [decisions-branches/workflow__checkout-v6-claude-baseline.md](decisions-branches/workflow__checkout-v6-claude-baseline.md)

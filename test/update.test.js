@@ -59,7 +59,7 @@ test('runUpdate: rewrites stale-marker workflow + baseline; leaves custom skills
     // Workflow refreshed
     const wf = await readFile(join(dir, '.github/workflows/clud-bug-review.yml'), 'utf8');
     assert.match(wf, /allowedTools/);
-    assert.match(wf, /^# clud-bug-template-version: v1/);
+    assert.match(wf, /^# clud-bug-template-version: v2/);
     // Baseline rewritten with current shipped content
     const baseline = await readFile(join(dir, '.claude/skills/critical-issues-only/SKILL.md'), 'utf8');
     assert.match(baseline, /critical-issues-only/);
@@ -74,7 +74,7 @@ test('runUpdate: rewrites stale-marker workflow + baseline; leaves custom skills
     // The refreshed workflow records a from/to version note.
     const wfChange = r.changed.find((c) => c.label === 'review workflow');
     assert.equal(wfChange.from, 'v0');
-    assert.equal(wfChange.to, 'v1');
+    assert.equal(wfChange.to, 'v2');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
