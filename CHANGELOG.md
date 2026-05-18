@@ -7,6 +7,14 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 ### Pending (separate PR)
 - Pinning `anthropics/claude-code-action@v1` via `{{CCA_VERSION}}` placeholder substitution. Requires routing `audit.yml.tmpl` + `self-update.yml.tmpl` through `renderFile` (currently raw `readFile`).
 
+## [0.5.8] — 2026-05-18
+
+### Added
+- **Composite strict-mode-gate action.** The ~24 lines of inline shell that v0.5.x rendered into every workflow template now live in `.github/actions/strict-mode-gate/action.yml`. Templates reference it via `uses: thrillmot/clud-bug/.github/actions/strict-mode-gate@v0.5.8`. The contract is unchanged (read base ref's `.clud-bug.json`; if `strictMode: true`, fail the check when the latest review's first line starts with `## 🐛 Clud Bug review — critical findings`). Same identifier, same exit code, same comment-grep — just factored out so a single edit ships across all 3 templates + the upcoming v0.6 GitHub App runtime. Adds a `bot-login` input (defaults to `claude[bot]`) so the same gate can serve the v0.6 App which will post as `clud-bug[bot]`.
+
+### Changed
+- **Template marker bumped `v1` → `v2`** in `workflow.yml.tmpl`, `workflow-ts.yml.tmpl`, `workflow-py.yml.tmpl`. Existing v1 installs will be refreshed to v2 on the next `clud-bug update` (using v0.5.7's refresh-mode), and the rendered workflows will pick up the composite-action reference automatically. `audit.yml.tmpl` and `self-update.yml.tmpl` are unchanged (still v1) — they don't carry the gate.
+
 ## [0.5.7] — 2026-05-18
 
 ### Added
@@ -83,6 +91,7 @@ Installs predating PR #52 have markerless workflows. The first `clud-bug update`
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.5.8]: https://github.com/thrillmot/clud-bug/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/thrillmot/clud-bug/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/thrillmot/clud-bug/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/thrillmot/clud-bug/compare/v0.5.4...v0.5.5

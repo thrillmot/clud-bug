@@ -1,4 +1,4 @@
-# clud-bug-template-version: v1
+# clud-bug-template-version: v2
 name: Clud Bug 🐛 Crawls Your Code
 
 on:
@@ -189,12 +189,14 @@ jobs:
             with confirmed: true.
             If there are no critical issues, post a one-line comment saying so.
 
-      # Strict-mode gate. Fails the check when both
-      #   (a) the BASE ref's .claude/skills/.clud-bug.json has
-      #       { "strictMode": true } — read from base so a PR can't opt
-      #       itself out of strict mode by editing its own manifest, AND
-      #   (b) the LATEST clud-bug review comment on this PR has a body
-      #       whose FIRST LINE is "## 🐛 Clud Bug review — critical findings".
+      # Strict-mode gate. Fails the check when the BASE ref's manifest
+      # has { "strictMode": true } AND the latest clud-bug review's first
+      # line starts with "## 🐛 Clud Bug review — critical findings".
+      #
+      # Logic lives in the composite action so it's revised once across
+      # all 3 templates + the App runtime. Pinned to the same clud-bug
+      # tag the user installed (rendered by `clud-bug init`), so the
+      # action's contract is stable for the lifetime of that install.
       #
       # if: success() — only run when claude-code-action succeeded. If the
       # action errored, no new comment was posted for this run; falling back
@@ -202,30 +204,6 @@ jobs:
       # Letting the action's own failure fail the check is louder and right.
       - name: Strict mode — fail check on critical findings
         if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          # Loud failure if the base manifest can't be read — silently falling
-          # back to advisory would silently disable strict mode for every
-          # opted-in repo. (Requires fetch-depth: 0 on the checkout above.)
-          BASE_MANIFEST=$(git show "origin/${{ github.base_ref }}:.claude/skills/.clud-bug.json" 2>&1) || {
-            echo "::warning::Base manifest not found on ${{ github.base_ref }} — strict mode disabled for this run."
-            exit 0
-          }
-          STRICT=$(echo "$BASE_MANIFEST" | node -e "let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',()=>{try{console.log(JSON.parse(s).strictMode===true)}catch(e){console.log('false')}})")
-          [ "$STRICT" = "true" ] || exit 0
-
-          # Use startswith (not regex contains) so comments that *quote* the
-          # sentinel header (other reviews, @claude responses, meta-PRs about
-          # strict mode itself) don't get picked up as "the latest review."
-          LATEST=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments?sort=created&direction=desc&per_page=100" \
-            --jq '[.[] | select(.user.login == "claude[bot]" and (.body | startswith("## 🐛 Clud Bug review")))][0].body // ""')
-
-          # Scope the critical-findings match to the FIRST LINE so quoted
-          # sentinels deeper in the review can't trip the gate.
-          if echo "$LATEST" | head -n1 | grep -q "Clud Bug review — critical findings"; then
-            echo "::error title=Clud Bug 🐛::Critical issues found and strictMode is enabled — failing this check."
-            echo "::error::See the latest Clud Bug review comment for details. Push a fix and the gate will clear on the next run."
-            exit 1
-          fi
+        uses: thrillmot/clud-bug/.github/actions/strict-mode-gate@v0.5.8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
