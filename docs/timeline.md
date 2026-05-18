@@ -15,6 +15,7 @@ PR's CI run, so this file is always coherent with current `main`.
 
 ## 2026-05
 
+- **2026-05-18** — Self-mod ceremony: render v2 templates into this repo own clud-bug-review.yml *(feat/render-v2-templates-self-mod)* — [decisions-branches/feat__render-v2-templates-self-mod.md](decisions-branches/feat__render-v2-templates-self-mod.md)
 - **2026-05-18** — Stream Y: extract strict-mode gate into a composite GitHub Action (v0.5.8) *(feat/composite-strict-mode-gate)* — [decisions-branches/feat__composite-strict-mode-gate.md](decisions-branches/feat__composite-strict-mode-gate.md)
 - **2026-05-18** — Implement clud-bug update refresh-mode using template-version markers (v0.5.7) *(feat/update-refresh-mode)* — [decisions-branches/feat__update-refresh-mode.md](decisions-branches/feat__update-refresh-mode.md)
 - **2026-05-18** — Upgrade to logmind v0.2.1 (workflow version pinning) *(feat/logmind-0.2.1)* — [decisions-branches/feat__logmind-0.2.1.md](decisions-branches/feat__logmind-0.2.1.md)
