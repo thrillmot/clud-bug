@@ -118,22 +118,34 @@ jobs:
 
               **This round:** N critical · N minor · N resolved from prior · N still open
 
-            The four counters (always include all four, even when 0):
+            This applies to BOTH the bare "## 🐛 Clud Bug review" header
+            and the strict-mode variants ("— critical findings" /
+            "— clean"). The status line goes on the next non-empty line
+            regardless of which header you used. Do not omit the H2
+            header variant in strict mode just to fit the status line —
+            the strict-mode gate reads the H2 line and would break.
+
+            The four counters (always include all four, even when 0 —
+            fixed format is grep-able and lets agents reading the
+            comment parse it deterministically):
               • critical            — count of NEW critical findings
-                                      in this review (strict-mode-gated)
+                                      in this review (the ones strict
+                                      mode gates on)
               • minor               — count of non-critical findings
+                                      (suggestions / nits / observations)
               • resolved from prior — count of prior unresolved threads
-                                      YOU (claude[bot]) just resolved
-                                      on this pass (the loop-closing
-                                      signal — tells the author the
-                                      bot read their fixes)
+                                      YOU (claude[bot]) just resolved on
+                                      this pass via resolveReviewThread
+                                      (the loop-closing signal — this
+                                      tells the author the bot read
+                                      their fixes)
               • still open          — count of prior unresolved threads
                                       whose issue still stands AFTER
                                       this pass
 
-            On a first-time review both "resolved from prior" and "still
-            open" are 0. After fix-pushes, "resolved from prior" is
-            typically positive.
+            On a first-time review, "resolved from prior" and "still
+            open" are both 0. On follow-up reviews after a fix-push,
+            "resolved from prior" should typically be positive.
 
             Post it via:
               gh pr comment "$PR_NUMBER" --body "<your review>"

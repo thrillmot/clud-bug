@@ -139,6 +139,13 @@ jobs:
 
               **This round:** N critical · N minor · N resolved from prior · N still open
 
+            This applies to BOTH the bare "## 🐛 Clud Bug review" header
+            and the strict-mode variants ("— critical findings" /
+            "— clean"). The status line goes on the next non-empty line
+            regardless of which header you used. Do not omit the H2
+            header variant in strict mode just to fit the status line —
+            the strict-mode gate reads the H2 line and would break.
+
             The four counters (always include all four, even when 0 —
             fixed format is grep-able and lets agents reading the
             comment parse it deterministically):
