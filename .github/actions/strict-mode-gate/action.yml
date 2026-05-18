@@ -57,8 +57,15 @@ runs:
         # Use startswith (not regex contains) so comments that *quote* the
         # sentinel header (other reviews, @claude responses, meta-PRs about
         # strict mode itself) don't get picked up as "the latest review."
+        #
+        # BOT_LOGIN is read by jq via env.BOT_LOGIN (jq's native env-var
+        # access) so a value containing `"` or `\` can't break the filter
+        # the way shell interpolation would. Defense in depth — current
+        # callers (claude[bot], the v0.6 clud-bug[bot]) are safe literals,
+        # but this guards any future caller that wires bot-login from a
+        # less-trusted source.
         LATEST=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments?sort=created&direction=desc&per_page=100" \
-          --jq "[.[] | select(.user.login == \"$BOT_LOGIN\" and (.body | startswith(\"## 🐛 Clud Bug review\")))][0].body // \"\"")
+          --jq '[.[] | select(.user.login == env.BOT_LOGIN and (.body | startswith("## 🐛 Clud Bug review")))][0].body // ""')
 
         # Scope the critical-findings match to the FIRST LINE so quoted
         # sentinels deeper in the review can't trip the gate.
