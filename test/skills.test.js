@@ -8,6 +8,7 @@ import {
   readManifest, writeManifest, mergeManifest,
   removeSkill, listInstalled, diffManifest,
   readReviewMode, partitionByReviewMode,
+  extractPerSkillLine, classifyPerSkillOutcome,
   _internal,
 } from '../lib/skills.js';
 
@@ -484,6 +485,114 @@ test('partitionByReviewMode: handles skills with no content (defaults to shared)
   const { shared, dedicated } = partitionByReviewMode(skills);
   assert.deepEqual(shared.map((s) => s.name), ['a', 'b']);
   assert.deepEqual(dedicated.map((s) => s.name), ['c']);
+});
+
+// --- BB.3: per-skill check-run classifier (v0.5.10) ---
+// classifyPerSkillOutcome + extractPerSkillLine are the source of truth that
+// the composite strict-mode-gate action calls into via `node -e ...` for
+// every entry in .clud-bug.json's strictSkills array. Bash regex shipped in
+// PR #57's first revision had a "0 findings" substring match that silently
+// passed "10 findings" / "100 findings" as success — caught by both bots,
+// fixed here, pinned by these tests.
+
+const SAMPLE_COMMENT = [
+  '## 🐛 Clud Bug review',
+  '',
+  '**This round:** 0 critical · 0 minor · 0 resolved from prior · 0 still open',
+  '',
+  '### Per-skill scan',
+  '- [critical-issues-only]: scanned all paths. 0 findings.',
+  '- [evidence-based-review]: applied to all findings. ✓ all anchored.',
+  '- [brand-voice-review]: scanned 3 microcopy changes. 1 finding (below).',
+  '- [pii-and-compliance]: scanned analytics + logging. 10 findings (below).',
+  '- [api-contract-enforcement]: n/a — no public API surface in this diff.',
+  '',
+].join('\n');
+
+test('extractPerSkillLine: returns the outcome portion stripped of the prefix', () => {
+  assert.equal(
+    extractPerSkillLine(SAMPLE_COMMENT, 'critical-issues-only'),
+    'scanned all paths. 0 findings.',
+  );
+  assert.equal(
+    extractPerSkillLine(SAMPLE_COMMENT, 'brand-voice-review'),
+    'scanned 3 microcopy changes. 1 finding (below).',
+  );
+});
+
+test('extractPerSkillLine: returns null when the skill is absent', () => {
+  assert.equal(extractPerSkillLine(SAMPLE_COMMENT, 'no-such-skill'), null);
+});
+
+test('extractPerSkillLine: bracket prefix prevents partial-name collisions', () => {
+  // "brand-voice" must NOT match a line for "brand-voice-review".
+  assert.equal(extractPerSkillLine(SAMPLE_COMMENT, 'brand-voice'), null);
+});
+
+test('extractPerSkillLine: handles missing/empty inputs without throwing', () => {
+  assert.equal(extractPerSkillLine(null, 'x'), null);
+  assert.equal(extractPerSkillLine('', 'x'), null);
+  assert.equal(extractPerSkillLine(SAMPLE_COMMENT, ''), null);
+  assert.equal(extractPerSkillLine(SAMPLE_COMMENT, null), null);
+});
+
+test('classifyPerSkillOutcome: "0 findings" → success', () => {
+  assert.equal(classifyPerSkillOutcome('scanned all paths. 0 findings.'), 'success');
+});
+
+test('classifyPerSkillOutcome: "0 finding" (singular) → success', () => {
+  // Singular is theoretically nonsensical ("0 finding" not "0 findings") but
+  // a lazy bot rendering of `${n} finding${plural}` could emit it.
+  assert.equal(classifyPerSkillOutcome('scanned. 0 finding.'), 'success');
+});
+
+test('classifyPerSkillOutcome: REGRESSION — "10 findings" does NOT match 0 substring (failure)', () => {
+  // The exact bug both bots caught on PR #57. "10 findings" contains the
+  // literal substring "0 findings"; an unanchored match would classify this
+  // as success. The leading-non-digit anchor (`(^|[^0-9])`) prevents it.
+  assert.equal(classifyPerSkillOutcome('scanned. 10 findings (below).'), 'failure');
+  assert.equal(classifyPerSkillOutcome('scanned. 100 findings.'), 'failure');
+  assert.equal(classifyPerSkillOutcome('scanned. 20 findings.'), 'failure');
+});
+
+test('classifyPerSkillOutcome: any other finding count → failure', () => {
+  assert.equal(classifyPerSkillOutcome('1 finding (below).'), 'failure');
+  assert.equal(classifyPerSkillOutcome('2 critical findings below.'), 'failure');
+  assert.equal(classifyPerSkillOutcome('scanned 3 microcopy changes. 1 finding (below).'), 'failure');
+});
+
+test('classifyPerSkillOutcome: "n/a" → success', () => {
+  assert.equal(classifyPerSkillOutcome('n/a — no API surface in this diff.'), 'success');
+  // Trailing punctuation handled.
+  assert.equal(classifyPerSkillOutcome('n/a.'), 'success');
+  // Bare n/a at end-of-line.
+  assert.equal(classifyPerSkillOutcome('skipped, n/a'), 'success');
+});
+
+test('classifyPerSkillOutcome: null/missing line → neutral (skill not in review)', () => {
+  assert.equal(classifyPerSkillOutcome(null), 'neutral');
+  assert.equal(classifyPerSkillOutcome(undefined), 'neutral');
+});
+
+test('classifyPerSkillOutcome: empty string → failure (line present but unparseable)', () => {
+  // Empty outcome line means the bot emitted "- [name]: " with no text —
+  // that's broken output, not "no findings." Conservative classification:
+  // failure surfaces the issue rather than greenlighting a malformed review.
+  assert.equal(classifyPerSkillOutcome(''), 'failure');
+});
+
+test('classifyPerSkillOutcome: SAMPLE_COMMENT end-to-end matches expected classifications', () => {
+  const cases = [
+    ['critical-issues-only', 'success'],   // 0 findings
+    ['brand-voice-review',   'failure'],   // 1 finding
+    ['pii-and-compliance',   'failure'],   // 10 findings (regression check)
+    ['api-contract-enforcement', 'success'], // n/a
+    ['nonexistent-skill',   'neutral'],    // not in review
+  ];
+  for (const [name, expected] of cases) {
+    const line = extractPerSkillLine(SAMPLE_COMMENT, name);
+    assert.equal(classifyPerSkillOutcome(line), expected, `${name} should be ${expected}`);
+  }
 });
 
 test('readReviewMode: all 4 bundled baseline skills declare shared mode', async () => {

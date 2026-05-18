@@ -142,48 +142,58 @@ runs:
           exit 0
         fi
 
-        # Emit one check-run per configured strictSkill. Status comes from
-        # the skill's line in the "### Per-skill scan" block of the review:
-        #   - line contains " 0 findings" OR " n/a " → success
-        #   - any other content (typically "N findings"/"N finding")    → failure
-        # If the skill isn't mentioned in the review at all (because the
-        # bot didn't emit a Per-skill scan block — e.g. an older v2-template
-        # comment), the check-run is emitted with conclusion=neutral and a
-        # text body explaining the absence, so the gate is loud rather than
-        # silently green.
-        EXIT_CODE=0
-        while IFS= read -r SKILL_NAME; do
+        # Emit one check-run per configured strictSkill. Classification
+        # (success / failure / neutral) is delegated to Node so the rule
+        # has unit-test coverage in test/skills.test.js — bash regex was
+        # the source of a "0 findings substring matches 10 findings" bug
+        # caught on PR #57. See classifyPerSkillOutcome in lib/skills.js
+        # for the contract.
+        #
+        # The classifier is sourced from this repo at the same ref the
+        # composite is pinned at (thrillmot/clud-bug@<ref>/lib/skills.js
+        # is the action's own checkout when consumed remotely via
+        # `uses: thrillmot/clud-bug/.github/actions/strict-mode-gate@vX`).
+        SKILLS_LIB="${{ github.action_path }}/../../../lib/skills.js"
+        if [ ! -f "$SKILLS_LIB" ]; then
+          echo "::warning::Per-skill check-runs disabled — classifier at $SKILLS_LIB not found. (Composite action may be running outside its expected layout.)"
+          exit 0
+        fi
+
+        # Pre-export the constants Node needs.
+        export LATEST STRICT_SKILLS SKILLS_LIB
+
+        # Pipe strictSkills (one per line) into a Node script that
+        # classifies each skill via classifyPerSkillOutcome + emits the
+        # gh-api invocation params on stdout. We then loop in bash over
+        # the result and call `gh api` per skill. (Doing the gh api call
+        # from Node would be cleaner but requires GH_TOKEN env propagation
+        # + adds a dependency on @octokit/* — bash + gh is the minimal path.)
+        CLASSIFIED=$(echo "$STRICT_SKILLS" | node -e "
+          import('file://' + process.env.SKILLS_LIB).then(({ extractPerSkillLine, classifyPerSkillOutcome }) => {
+            const latest = process.env.LATEST || '';
+            let buf = '';
+            process.stdin.on('data', c => buf += c);
+            process.stdin.on('end', () => {
+              for (const name of buf.split(/\n/).map(s => s.trim()).filter(Boolean)) {
+                const line = extractPerSkillLine(latest, name);
+                const conclusion = classifyPerSkillOutcome(line);
+                const summary = line ?? 'No outcome reported for [' + name + '] in the latest clud-bug review.';
+                // Tab-separated record: name<TAB>conclusion<TAB>summary
+                // Summary is single-lined by the bot's prompt; replace any
+                // embedded newlines defensively.
+                process.stdout.write(name + '\t' + conclusion + '\t' + summary.replace(/[\r\n]+/g, ' ') + '\n');
+              }
+            });
+          }).catch(e => { console.error('classifier failed:', e.message); process.exit(2); });
+        ") || {
+          echo "::error::Per-skill check-runs classifier failed — see preceding error."
+          exit 1
+        }
+
+        # Loop in bash; emit one check-run per classified skill.
+        while IFS=$'\t' read -r SKILL_NAME CONCLUSION SUMMARY; do
           [ -z "$SKILL_NAME" ] && continue
-          # Match the skill's line in the Per-skill scan block. Format:
-          #   - [<skill-name>]: <one-sentence outcome>
-          # The bracket-anchored prefix prevents partial-name collisions
-          # (e.g. "brand-voice-review" not matching "brand-voice").
-          SKILL_LINE=$(echo "$LATEST" | grep -E "^[[:space:]]*-[[:space:]]*\[${SKILL_NAME}\]:" || true)
-
-          CONCLUSION="neutral"
-          SUMMARY="No outcome reported for [${SKILL_NAME}] in the latest clud-bug review."
-          if [ -n "$SKILL_LINE" ]; then
-            # Strip the "  - [name]: " prefix to get the outcome sentence
-            # for the check-run summary.
-            OUTCOME=$(echo "$SKILL_LINE" | sed -E "s/^[[:space:]]*-[[:space:]]*\[${SKILL_NAME}\]:[[:space:]]*//")
-            SUMMARY="$OUTCOME"
-            # Conservative match: "0 findings" or " n/a " (case-insensitive)
-            # → success. Anything else → failure. This treats "1 finding",
-            # "2 critical findings below", etc. all as failure, which is
-            # the intended strict-mode semantics for a per-skill gate.
-            if echo "$SKILL_LINE" | grep -qiE "0 findings|[[:space:]]n/a[[:space:]\.,]"; then
-              CONCLUSION="success"
-            else
-              CONCLUSION="failure"
-              EXIT_CODE=0   # check-run failure surfaces in branch protection, not via exit code here
-            fi
-          fi
-
           echo "::notice title=clud-bug[skill: ${SKILL_NAME}]::${CONCLUSION} — ${SUMMARY}"
-
-          # Emit the check-run. POST /repos/.../check-runs with head_sha=PR
-          # head. Skill name becomes the check name so it shows up in the
-          # PR's check list and is gateable via branch protection.
           gh api --method POST "repos/${{ github.repository }}/check-runs" \
             -f "name=${SKILL_NAME}" \
             -f "head_sha=${PR_HEAD_SHA}" \
@@ -192,8 +202,6 @@ runs:
             -f "output[title]=clud-bug: ${SKILL_NAME}" \
             -f "output[summary]=${SUMMARY}" \
             --silent || {
-              echo "::warning::Failed to emit check-run for ${SKILL_NAME} (this usually means the workflow lacks 'checks: write' permission)."
+              echo "::warning::Failed to emit check-run for ${SKILL_NAME} (workflow may lack 'checks: write' permission)."
             }
-        done <<< "$STRICT_SKILLS"
-
-        exit $EXIT_CODE
+        done <<< "$CLASSIFIED"
