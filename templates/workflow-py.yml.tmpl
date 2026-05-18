@@ -1,4 +1,4 @@
-# clud-bug-template-version: v3
+# clud-bug-template-version: v4
 name: Clud Bug 🐛 Crawls Your Code
 
 on:
@@ -12,6 +12,8 @@ jobs:
       contents: read
       pull-requests: write
       id-token: write
+      # checks: write — composite emits per-skill check-runs (BB.3).
+      checks: write
 
     steps:
       - uses: actions/checkout@v6
@@ -220,6 +222,6 @@ jobs:
       # Strict-mode gate — composite action; see workflow.yml.tmpl for design notes.
       - name: Strict mode — fail check on critical findings
         if: success()
-        uses: thrillmot/clud-bug/.github/actions/strict-mode-gate@v0.5.8
+        uses: thrillmot/clud-bug/.github/actions/strict-mode-gate@v0.5.10
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

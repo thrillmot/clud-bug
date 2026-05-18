@@ -7,6 +7,35 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 ### Pending (separate PR)
 - Pinning `anthropics/claude-code-action@v1` via `{{CCA_VERSION}}` placeholder substitution. Requires routing `audit.yml.tmpl` + `self-update.yml.tmpl` through `renderFile` (currently raw `readFile`).
 
+## [0.5.10] — 2026-05-18
+
+### Added — Stream BB.3 (per-skill check-runs via GitHub Checks API)
+
+- **Composite strict-mode-gate action now emits per-skill check-runs.** For each skill listed in the base manifest's new `strictSkills` array, the composite emits a separate check-run via `POST /repos/{owner}/{repo}/check-runs`. The check-run's conclusion is derived from the skill's line in the latest review comment's `### Per-skill scan` block:
+  - line contains `0 findings` / `0 finding` / `n/a` → `conclusion: success`
+  - any other content (`N finding`, `N findings` with N>0) → `conclusion: failure`
+  - skill not mentioned in the review → `conclusion: failure` (GitHub treats `neutral` as passing for required checks — a missing skill must fail loud, not silently green)
+
+  Each emitted check-run shows up in the PR's check list with the skill name as the check name (`brand-voice-review`, `pii-and-compliance`, etc.) and is **individually gateable in branch protection** — letting a repo require a clean `brand-voice-review` check alongside the master `clud-bug-review` check.
+
+  **Opt-in.** Users who don't set `strictSkills` see no behavior change. The composite emits zero check-runs and exits 0.
+
+  Example `.claude/skills/.clud-bug.json`:
+  ```json
+  {
+    "strictMode": true,
+    "strictSkills": ["brand-voice-review", "pii-and-compliance"]
+  }
+  ```
+
+- **`checks: write` permission added to all 3 workflow templates** — required for the Checks API call. No-op for users who don't configure `strictSkills`.
+
+### Changed
+
+- **Template marker bumped `v3` → `v4`** in `workflow.yml.tmpl`, `workflow-ts.yml.tmpl`, `workflow-py.yml.tmpl`. Existing v3 installs auto-upgrade via v0.5.7's refresh-mode on the next `clud-bug update`.
+- **Composite action ref bumped `@v0.5.8` → `@v0.5.10`** in the same three templates. v0.5.9 installs that adopted v3 templates will need a `clud-bug update` to pick up the v4 templates referencing the new action ref.
+- **`strict-mode-gate@v0.5.8` continues to resolve unchanged** — the action's strict-mode gate logic is byte-identical at both refs. Existing v3 templates pointing at `@v0.5.8` keep working; only the per-skill check-runs behavior (BB.3) is gated behind the `@v0.5.10` ref.
+
 ## [0.5.9] — 2026-05-18
 
 ### Added — Stream BB.1 + BB.2 (skill routing + per-skill review output)
@@ -110,6 +139,7 @@ Installs predating PR #52 have markerless workflows. The first `clud-bug update`
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.5.10]: https://github.com/thrillmot/clud-bug/compare/v0.5.9...v0.5.10
 [0.5.9]: https://github.com/thrillmot/clud-bug/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/thrillmot/clud-bug/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/thrillmot/clud-bug/compare/v0.5.6...v0.5.7
