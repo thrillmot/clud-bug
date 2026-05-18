@@ -2,6 +2,11 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] — 2026-05-18
+
+### Added
+- **Status block at the top of every review.** Every Clud Bug PR-review comment now begins (immediately under the `## 🐛 Clud Bug review` header) with a single-line status block: `**This round:** N critical · N minor · N resolved from prior · N still open`. The four counters tell the author and any agent reading the comment exactly what changed since the last review pass — most importantly, **resolved from prior** is the loop-closing signal that proves the bot read their fixes and cleared the corresponding threads, not just listed new complaints. Format is identical on every review (zero values included) so it's grep-able and machine-parseable.
+
 ## [0.5.3] — 2026-05-15
 
 ### Changed
@@ -44,6 +49,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.5.4]: https://github.com/thrillmot/clud-bug/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/thrillmot/clud-bug/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/thrillmot/clud-bug/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/thrillmot/clud-bug/compare/v0.5.0...v0.5.1
