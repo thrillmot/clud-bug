@@ -28,14 +28,11 @@ permissions:
   pull-requests: write
   id-token: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0   # full history needed for git --since
 
@@ -96,7 +93,6 @@ jobs:
         env:
           AUDIT_DATE: ${{ steps.prep.outputs.date }}
           AUDIT_BRANCH: ${{ steps.prep.outputs.branch }}
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
