@@ -1,4 +1,4 @@
-# clud-bug-template-version: v2
+# clud-bug-template-version: v3
 name: Clud Bug 🐛 Crawls Your Code
 
 on:
@@ -101,6 +101,23 @@ jobs:
             based-review]: this claim isn't anchored to a line"). Generic
             advice that contradicts a project skill is wrong by definition.
 
+            Skill routing — shared vs dedicated:
+            Each loaded skill carries a `review_mode:` field in its YAML
+            frontmatter at .claude/skills/<name>/SKILL.md. Two values:
+
+              - `review_mode: shared` — bug-finding / convention / evidence
+                skills. Their findings bundle into the standard "Critical
+                findings" / "Minor findings" sections.
+              - `review_mode: dedicated` — domain-specific skills (brand
+                voice, compliance, API-contract, test-discipline). Each
+                gets its own focused H3 section in the review.
+              - Missing field → treat as `shared`.
+
+            Before writing the review, scan each loaded skill's frontmatter
+            (the first `---`-delimited block of its SKILL.md) to identify
+            its review_mode. You can read them with:
+              cat .claude/skills/*/SKILL.md
+
             At the end of every review, append a single-line footer:
               Skills referenced: [skill-name-1, skill-name-2, ...]
             If you genuinely cited none, list "[none]" and explain why no
@@ -167,6 +184,38 @@ jobs:
             On a first-time review, "resolved from prior" and "still
             open" are both 0. On follow-up reviews after a fix-push,
             "resolved from prior" should typically be positive.
+
+            Per-skill scan block (required, immediately under the status line):
+            After the **This round:** counters, emit a "### Per-skill scan"
+            section with ONE line per loaded skill — even silent ones. This
+            is the anti-dilution layer: every loaded skill must be
+            acknowledged so authors can see their skill ran, even when it
+            produced no findings.
+
+              ### Per-skill scan
+              - [<skill-name>]: <one-sentence outcome>
+
+            Examples (mix of shared + dedicated, with and without findings):
+              - [critical-issues-only]: scanned all paths. 2 critical findings below.
+              - [evidence-based-review]: applied to all findings. ✓ all anchored.
+              - [respect-existing-conventions]: scanned for pattern fights. 0 findings.
+              - [brand-voice-review]: scanned 3 microcopy changes. 1 finding (below).
+              - [pii-and-compliance]: scanned logging + analytics. 0 findings.
+
+            Per-skill findings sections (dedicated-mode skills only):
+            For each dedicated-mode skill that produced one or more
+            findings, emit a dedicated H3 section before the standard
+            critical/minor buckets:
+
+              ### Brand voice [brand-voice-review]
+              - Finding: button label "Click here!" violates verb-noun rule
+                (lib/ui/Button.tsx:42). Suggested: "Open settings."
+
+            Shared-mode skill findings stay in the existing combined
+            "Critical findings" / "Minor findings" buckets — they
+            cross-correlate (a logging-PII issue belongs in both the
+            critical-issues-only and pii-and-compliance lens at once), so
+            bundling preserves that signal.
 
             Post it via:
               gh pr comment "$PR_NUMBER" --body "<your review>"
