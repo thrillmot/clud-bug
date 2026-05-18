@@ -15,6 +15,7 @@ PR's CI run, so this file is always coherent with current `main`.
 
 ## 2026-05
 
+- **2026-05-18** — Upgrade to logmind v0.2.1 (workflow version pinning) *(feat/logmind-0.2.1)* — [decisions-branches/feat__logmind-0.2.1.md](decisions-branches/feat__logmind-0.2.1.md)
 - **2026-05-18** — Part 2 of v0.5.6 workflow sync: claude-code-review.yml (separate PR for per-bot review coverage) *(workflow/checkout-v6-claude-baseline)* — [decisions-branches/workflow__checkout-v6-claude-baseline.md](decisions-branches/workflow__checkout-v6-claude-baseline.md)
 - **2026-05-18** — Sync repo workflow files with v0.5.6 template change (checkout v6, drop FORCE shim) *(workflow/checkout-v6-repo)* — [decisions-branches/workflow__checkout-v6-repo.md](decisions-branches/workflow__checkout-v6-repo.md)
 - **2026-05-18** — Bump actions/checkout v5 to v6, drop FORCE_JAVASCRIPT shim, defensive git show in allowlist *(feat/checkout-v6-templates)* — [decisions-branches/feat__checkout-v6-templates.md](decisions-branches/feat__checkout-v6-templates.md)
