@@ -35,10 +35,11 @@ test('runUpdate: short-circuits when no manifest and no workflow exist', async (
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('runUpdate: rewrites stale workflow + baseline; leaves custom skills alone', async () => {
+test('runUpdate: rewrites stale-marker workflow + baseline; leaves custom skills alone', async () => {
   const dir = await makeRepo({
     'package.json': JSON.stringify({ name: 'demo' }),
-    '.github/workflows/clud-bug-review.yml': '# stale\n',
+    // Stale marker (v0) — eligible for refresh under marker-driven mode.
+    '.github/workflows/clud-bug-review.yml': '# clud-bug-template-version: v0\n# old contents\n',
     '.claude/skills/.clud-bug.json': JSON.stringify({
       version: 1,
       installed: [
@@ -58,6 +59,7 @@ test('runUpdate: rewrites stale workflow + baseline; leaves custom skills alone'
     // Workflow refreshed
     const wf = await readFile(join(dir, '.github/workflows/clud-bug-review.yml'), 'utf8');
     assert.match(wf, /allowedTools/);
+    assert.match(wf, /^# clud-bug-template-version: v1/);
     // Baseline rewritten with current shipped content
     const baseline = await readFile(join(dir, '.claude/skills/critical-issues-only/SKILL.md'), 'utf8');
     assert.match(baseline, /critical-issues-only/);
@@ -69,8 +71,55 @@ test('runUpdate: rewrites stale workflow + baseline; leaves custom skills alone'
     const manifest = JSON.parse(await readFile(join(dir, '.claude/skills/.clud-bug.json'), 'utf8'));
     assert.equal(manifest.lastUpdateVersion, '0.3.0');
     assert.ok(manifest.lastUpdate);
-    // Counts
-    assert.ok(r.changed.length >= 1);
+    // The refreshed workflow records a from/to version note.
+    const wfChange = r.changed.find((c) => c.label === 'review workflow');
+    assert.equal(wfChange.from, 'v0');
+    assert.equal(wfChange.to, 'v1');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('runUpdate: markerless workflow is preserved + reported as skipped', async () => {
+  const dir = await makeRepo({
+    'package.json': JSON.stringify({ name: 'demo' }),
+    // No `# clud-bug-template-version:` header — treat as user-customized.
+    '.github/workflows/clud-bug-review.yml': 'name: My Custom Review\n# hand-edited by the team\n',
+    '.claude/skills/.clud-bug.json': JSON.stringify({ version: 1, installed: [] }),
+  });
+  try {
+    const r = await runUpdate({
+      cwd: dir, templatesDir: TEMPLATES, baselineDir: BASELINE, ourVersion: '0.5.7',
+      loadBaselineOpts: offlineLoadBaseline,
+    });
+    // Markerless file is preserved byte-for-byte.
+    const wf = await readFile(join(dir, '.github/workflows/clud-bug-review.yml'), 'utf8');
+    assert.equal(wf, 'name: My Custom Review\n# hand-edited by the team\n');
+    // Skipped list surfaces the file with a recovery hint.
+    const skipped = r.skipped ?? [];
+    const wfSkip = skipped.find((s) => s.label === 'review workflow');
+    assert.ok(wfSkip, 'expected review workflow to be reported as skipped');
+    assert.match(wfSkip.reason, /markerless/);
+    assert.match(wfSkip.reason, /clud-bug init/);
+    // Workflow itself is not in `changed`.
+    assert.ok(!r.changed.some((c) => c.label === 'review workflow'));
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('runUpdate: current-marker workflow with matching contents is a no-op', async () => {
+  const dir = await makeRepo({
+    'package.json': JSON.stringify({ name: 'demo' }),
+    '.claude/skills/.clud-bug.json': JSON.stringify({ version: 1, installed: [] }),
+    // Start with a stale-marker file so the first run refreshes it.
+    '.github/workflows/clud-bug-review.yml': '# clud-bug-template-version: v0\n# stale\n',
+  });
+  try {
+    // First pass refreshes to v1.
+    await runUpdate({ cwd: dir, templatesDir: TEMPLATES, baselineDir: BASELINE, ourVersion: '0.5.7', loadBaselineOpts: offlineLoadBaseline });
+    const after1 = await readFile(join(dir, '.github/workflows/clud-bug-review.yml'), 'utf8');
+    // Second pass: marker is current AND content byte-matches → unchanged.
+    const r2 = await runUpdate({ cwd: dir, templatesDir: TEMPLATES, baselineDir: BASELINE, ourVersion: '0.5.7', loadBaselineOpts: offlineLoadBaseline });
+    assert.ok(!r2.changed.some((c) => c.label === 'review workflow'), 'second run should not refresh workflow');
+    const after2 = await readFile(join(dir, '.github/workflows/clud-bug-review.yml'), 'utf8');
+    assert.equal(after1, after2, 'byte-stable across consecutive update runs');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
@@ -78,7 +127,8 @@ test('runUpdate: no-ops when files already match latest', async () => {
   const dir = await makeRepo({
     'package.json': JSON.stringify({ name: 'demo' }),
     '.claude/skills/.clud-bug.json': JSON.stringify({ version: 1, installed: [] }),
-    '.github/workflows/clud-bug-review.yml': '# placeholder',
+    // Stale-marker so first run refreshes (not skipped); second run no-ops.
+    '.github/workflows/clud-bug-review.yml': '# clud-bug-template-version: v0\n# placeholder\n',
   });
   try {
     // First run — writes everything.
@@ -89,11 +139,12 @@ test('runUpdate: no-ops when files already match latest', async () => {
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('runUpdate: re-renders audit workflow when installed', async () => {
+test('runUpdate: re-renders audit + self-update workflows when installed (stale marker)', async () => {
   const dir = await makeRepo({
     'package.json': JSON.stringify({ name: 'demo' }),
-    '.github/workflows/clud-bug-review.yml': '# stale review\n',
-    '.github/workflows/clud-bug-audit.yml': '# stale audit\n',
+    '.github/workflows/clud-bug-review.yml': '# clud-bug-template-version: v0\n# stale review\n',
+    '.github/workflows/clud-bug-audit.yml': '# clud-bug-template-version: v0\n# stale audit\n',
+    '.github/workflows/clud-bug-self-update.yml': '# clud-bug-template-version: v0\n# stale self-update\n',
     '.claude/skills/.clud-bug.json': JSON.stringify({ version: 1, installed: [] }),
   });
   try {
@@ -101,5 +152,8 @@ test('runUpdate: re-renders audit workflow when installed', async () => {
     const audit = await readFile(join(dir, '.github/workflows/clud-bug-audit.yml'), 'utf8');
     assert.match(audit, /Clud Bug 🐛 Audit/);
     assert.ok(r.changed.some((c) => c.label === 'audit workflow'));
+    const selfUpd = await readFile(join(dir, '.github/workflows/clud-bug-self-update.yml'), 'utf8');
+    assert.match(selfUpd, /Self-Update/);
+    assert.ok(r.changed.some((c) => c.label === 'self-update workflow'));
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

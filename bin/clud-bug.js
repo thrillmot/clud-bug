@@ -608,15 +608,27 @@ async function runUpdateCmd(_args) {
     return;
   }
 
-  if (result.changed.length === 0) {
+  const skipped = result.skipped ?? [];
+
+  if (result.changed.length === 0 && skipped.length === 0) {
     log('  Already current. Nothing to update.');
     return;
   }
 
-  log(`  ✓ Updated ${result.changed.length} file${result.changed.length === 1 ? '' : 's'}:`);
-  for (const c of result.changed) log(`     • ${rel(cwd, c.path)}  (${c.label})`);
+  if (result.changed.length > 0) {
+    log(`  ✓ Updated ${result.changed.length} file${result.changed.length === 1 ? '' : 's'}:`);
+    for (const c of result.changed) {
+      const versionNote = c.from && c.to && c.from !== c.to ? `  (${c.label}, ${c.from} → ${c.to})` : `  (${c.label})`;
+      log(`     • ${rel(cwd, c.path)}${versionNote}`);
+    }
+  }
   if (result.unchanged.length > 0) {
     log(`  ${result.unchanged.length} file${result.unchanged.length === 1 ? ' was' : 's were'} already current.`);
+  }
+  if (skipped.length > 0) {
+    log('');
+    log(`  ! Skipped ${skipped.length} markerless file${skipped.length === 1 ? '' : 's'} (treated as user-customized):`);
+    for (const s of skipped) log(`     • ${rel(cwd, s.path)}  — ${s.reason}`);
   }
   log('');
   log('Commit + push to apply the refreshed kit on the next PR.');

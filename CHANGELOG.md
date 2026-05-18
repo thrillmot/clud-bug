@@ -4,11 +4,19 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
-### Added
-- **`# clud-bug-template-version: v1` markers** in every shipped workflow template (`workflow.yml.tmpl`, `workflow-ts`, `workflow-py`, `audit.yml.tmpl`, `self-update.yml.tmpl`). Inert today — purely informational. Enables future idempotent-refresh logic in `runUpdate`: a v0.5.8+ release can detect "this workflow is from clud-bug v1 templates" vs "user has customized this workflow" and refresh only the former without clobbering customizations. Same pattern logmind shipped in v0.2.1.
-
 ### Pending (separate PR)
 - Pinning `anthropics/claude-code-action@v1` via `{{CCA_VERSION}}` placeholder substitution. Requires routing `audit.yml.tmpl` + `self-update.yml.tmpl` through `renderFile` (currently raw `readFile`).
+
+## [0.5.7] — 2026-05-18
+
+### Added
+- **`clud-bug update` refresh-mode** — uses the `# clud-bug-template-version:` marker that v0.5.6 + PR #52 added to every workflow template. `clud-bug update` now reads each installed workflow's marker, refreshes files whose marker is stale (logging the `vN → vN+1` transition), and **leaves markerless files alone** — treating them as user-customized. The recovery path is the logmind v0.2.1-style "delete the file + run `clud-bug init`" — printed in the `Skipped` block of `clud-bug update`'s output. Foundation for clean future template upgrades; mirrors the marker-driven contract logmind shipped in v0.2.1.
+- **`runUpdate` now refreshes `clud-bug-self-update.yml`** alongside `clud-bug-review.yml` and `clud-bug-audit.yml`. The self-update workflow was previously left alone after init — meaning template improvements to the cron + PR-open logic never reached existing installs. Now subject to the same marker-driven refresh.
+
+### Migration note
+Installs predating PR #52 have markerless workflows. The first `clud-bug update` run on those repos will print the markerless files in a `Skipped` block with the recovery hint. Installs created from a clud-bug version that included PR #52 (or later) already have `v1` markers in place and will refresh normally. Two paths for the markerless case:
+1. **Adopt refresh-mode**: `rm .github/workflows/clud-bug-*.yml && clud-bug init` (or `npx clud-bug@latest init`) — re-renders with v1 markers in place. Future updates pick up automatically.
+2. **Keep customizations**: leave the files alone; they'll continue to work, and `clud-bug update` will keep skipping them. Manual sync with templates is on you.
 
 ## [0.5.6] — 2026-05-18
 
@@ -75,6 +83,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.5.7]: https://github.com/thrillmot/clud-bug/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/thrillmot/clud-bug/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/thrillmot/clud-bug/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/thrillmot/clud-bug/compare/v0.5.3...v0.5.4
