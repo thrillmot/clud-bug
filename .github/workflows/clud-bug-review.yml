@@ -13,7 +13,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0   # strict-mode gate reads base ref's manifest
 
@@ -51,12 +51,11 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api graphql:*),Bash(gh api repos/:*),Bash(cat .claude/skills/.clud-bug.json)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api graphql:*),Bash(gh api repos/:*),Bash(git show:*),Bash(cat .claude/skills/.clud-bug.json)"
           prompt: |
             This project is "clud-bug". Claude Code PR review GitHub Action with project-aware skills auto-discovered from skills.sh. It's primarily javascript.
 
