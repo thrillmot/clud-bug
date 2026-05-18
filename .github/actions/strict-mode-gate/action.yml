@@ -22,8 +22,16 @@
 #      base manifest's `strictSkills` array, emit a separate check-run via
 #      the GitHub Checks API. Status is derived from the skill's line in
 #      the "### Per-skill scan" block of the latest review:
-#        - line contains "0 findings" or " n/a " → conclusion=success
-#        - otherwise                              → conclusion=failure
+#        - line contains "0 findings" / "0 finding" / " n/a " → success
+#        - any other line (incl. "N findings" with N>0)       → failure
+#        - skill NOT mentioned in the scan block              → failure
+#      The "missing skill → failure" choice is deliberate: GitHub treats
+#      `conclusion: neutral` as PASSING for required checks (only failure /
+#      cancelled / timed_out / action_required block merge). A strictSkill
+#      that doesn't appear in the review (typo, prompt regression, race)
+#      must fail loud, not silently green. See classifyPerSkillOutcome in
+#      lib/skills.js for the canonical logic + tests.
+#
 #      Each emitted check-run shows up in the PR's check list and is
 #      individually gateable in branch protection (`brand-voice-review`,
 #      `pii-and-compliance`, etc.).

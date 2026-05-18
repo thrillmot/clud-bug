@@ -12,9 +12,9 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 ### Added — Stream BB.3 (per-skill check-runs via GitHub Checks API)
 
 - **Composite strict-mode-gate action now emits per-skill check-runs.** For each skill listed in the base manifest's new `strictSkills` array, the composite emits a separate check-run via `POST /repos/{owner}/{repo}/check-runs`. The check-run's conclusion is derived from the skill's line in the latest review comment's `### Per-skill scan` block:
-  - line contains `0 findings` or ` n/a ` → `conclusion: success`
-  - any other content (`N finding`, `N findings`) → `conclusion: failure`
-  - skill not mentioned in the review → `conclusion: neutral` (loud rather than silently green)
+  - line contains `0 findings` / `0 finding` / `n/a` → `conclusion: success`
+  - any other content (`N finding`, `N findings` with N>0) → `conclusion: failure`
+  - skill not mentioned in the review → `conclusion: failure` (GitHub treats `neutral` as passing for required checks — a missing skill must fail loud, not silently green)
 
   Each emitted check-run shows up in the PR's check list with the skill name as the check name (`brand-voice-review`, `pii-and-compliance`, etc.) and is **individually gateable in branch protection** — letting a repo require a clean `brand-voice-review` check alongside the master `clud-bug-review` check.
 

@@ -569,9 +569,33 @@ test('classifyPerSkillOutcome: "n/a" → success', () => {
   assert.equal(classifyPerSkillOutcome('skipped, n/a'), 'success');
 });
 
-test('classifyPerSkillOutcome: null/missing line → neutral (skill not in review)', () => {
-  assert.equal(classifyPerSkillOutcome(null), 'neutral');
-  assert.equal(classifyPerSkillOutcome(undefined), 'neutral');
+test('classifyPerSkillOutcome: null/missing line → failure (skill not in review)', () => {
+  // GitHub branch protection treats `conclusion: neutral` as PASSING for
+  // required checks (only failure / cancelled / timed_out / action_required
+  // block merge). So a strictSkills entry that doesn't appear in the bot's
+  // per-skill scan block (typo, prompt regression, race) MUST classify as
+  // `failure` — otherwise the gate the user opted into is silently green.
+  // claude-review caught this on PR #57's first revision.
+  assert.equal(classifyPerSkillOutcome(null), 'failure');
+  assert.equal(classifyPerSkillOutcome(undefined), 'failure');
+});
+
+test('classifyPerSkillOutcome: missing skill in review block → failure (named)', () => {
+  // Named version of the assertion above, walking through
+  // extractPerSkillLine to exercise the full "strictSkill typo" /
+  // "skill dropped from review output" scenario as a single integrated test.
+  const commentWithoutBrandSkill = [
+    '## 🐛 Clud Bug review',
+    '',
+    '### Per-skill scan',
+    '- [critical-issues-only]: scanned all paths. 0 findings.',
+    '- [evidence-based-review]: applied. ✓ all anchored.',
+  ].join('\n');
+  // User configured strictSkills: ["brand-voice-review"] but the bot's
+  // review block doesn't mention it.
+  const line = extractPerSkillLine(commentWithoutBrandSkill, 'brand-voice-review');
+  assert.equal(line, null, 'extractPerSkillLine returns null for absent skill');
+  assert.equal(classifyPerSkillOutcome(line), 'failure', 'absent skill must fail the gate, not neutral-pass it');
 });
 
 test('classifyPerSkillOutcome: empty string → failure (line present but unparseable)', () => {
@@ -587,7 +611,7 @@ test('classifyPerSkillOutcome: SAMPLE_COMMENT end-to-end matches expected classi
     ['brand-voice-review',   'failure'],   // 1 finding
     ['pii-and-compliance',   'failure'],   // 10 findings (regression check)
     ['api-contract-enforcement', 'success'], // n/a
-    ['nonexistent-skill',   'neutral'],    // not in review
+    ['nonexistent-skill',   'failure'],    // not in review → fail loud (not neutral, which BP would pass)
   ];
   for (const [name, expected] of cases) {
     const line = extractPerSkillLine(SAMPLE_COMMENT, name);
