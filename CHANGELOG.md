@@ -14,7 +14,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **`runUpdate` now refreshes `clud-bug-self-update.yml`** alongside `clud-bug-review.yml` and `clud-bug-audit.yml`. The self-update workflow was previously left alone after init — meaning template improvements to the cron + PR-open logic never reached existing installs. Now subject to the same marker-driven refresh.
 
 ### Migration note
-After upgrading from v0.5.6, existing installs have markerless workflows. The first `clud-bug update` run will print them in a `Skipped` block with the recovery hint. Two paths:
+Installs predating PR #52 have markerless workflows. The first `clud-bug update` run on those repos will print the markerless files in a `Skipped` block with the recovery hint. Installs created from a clud-bug version that included PR #52 (or later) already have `v1` markers in place and will refresh normally. Two paths for the markerless case:
 1. **Adopt refresh-mode**: `rm .github/workflows/clud-bug-*.yml && clud-bug init` (or `npx clud-bug@latest init`) — re-renders with v1 markers in place. Future updates pick up automatically.
 2. **Keep customizations**: leave the files alone; they'll continue to work, and `clud-bug update` will keep skipping them. Manual sync with templates is on you.
 
