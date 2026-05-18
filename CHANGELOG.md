@@ -7,6 +7,25 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 ### Pending (separate PR)
 - Pinning `anthropics/claude-code-action@v1` via `{{CCA_VERSION}}` placeholder substitution. Requires routing `audit.yml.tmpl` + `self-update.yml.tmpl` through `renderFile` (currently raw `readFile`).
 
+## [0.5.9] — 2026-05-18
+
+### Added — Stream BB.1 + BB.2 (skill routing + per-skill review output)
+
+- **`review_mode` frontmatter field on skills.** Every SKILL.md can declare `review_mode: shared` or `review_mode: dedicated` (default: `shared` when omitted). The four shipped baselines (`critical-issues-only`, `evidence-based-review`, `respect-existing-conventions`, `clud-bug-collaboration`) now declare `review_mode: shared`. Domain skills published in [thrillmot/agent-skills](https://github.com/thrillmot/agent-skills) (`brand-voice-review`, `api-contract-enforcement`, `pii-and-compliance`, `test-discipline`) declare `review_mode: dedicated`.
+- **`readReviewMode(content)` + `partitionByReviewMode(skills)` in `lib/skills.js`** — parsing + bucketing helpers. Single source of truth that the upcoming v0.6 GitHub App will reuse to route literal parallel Claude calls.
+- **Per-skill review output structure.** The workflow prompt now requires:
+  - A `### Per-skill scan` block under the status line — one line per loaded skill, even silent ones. Forces the bot to acknowledge each skill explicitly (anti-dilution for shared skills, visibility for dedicated ones).
+  - Dedicated H3 sections (`### Brand voice [brand-voice-review]`) for each dedicated-mode skill that produced findings.
+  - Shared-mode skill findings stay in the existing combined Critical/Minor buckets (preserves cross-correlation).
+
+### Changed
+
+- **Template marker bumped `v2` → `v3`** in `workflow.yml.tmpl`, `workflow-ts.yml.tmpl`, `workflow-py.yml.tmpl`. Existing v2 installs auto-upgrade via v0.5.7's refresh-mode on the next `clud-bug update`.
+
+### Architecture note
+
+v0.5.9 ships the user-visible BB.1+BB.2 behavior via prompt restructuring inside the existing single `claude-code-action` call — same one-Claude-call cost model. The v0.6 GitHub App will use the same `review_mode` metadata to route to literal parallel API calls (one shared + N dedicated, per the locked architecture decision). The frontmatter contract is identical across both runtimes.
+
 ## [0.5.8] — 2026-05-18
 
 ### Added
@@ -91,6 +110,7 @@ Installs predating PR #52 have markerless workflows. The first `clud-bug update`
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.5.9]: https://github.com/thrillmot/clud-bug/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/thrillmot/clud-bug/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/thrillmot/clud-bug/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/thrillmot/clud-bug/compare/v0.5.5...v0.5.6

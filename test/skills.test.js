@@ -7,6 +7,7 @@ import {
   SkillsClient, rankAndCap, writeSkills, loadBaseline,
   readManifest, writeManifest, mergeManifest,
   removeSkill, listInstalled, diffManifest,
+  readReviewMode, partitionByReviewMode,
   _internal,
 } from '../lib/skills.js';
 
@@ -418,4 +419,84 @@ test('manifest extra fields (pinVersion, lastUpdate*) survive writeSkills + merg
     assert.ok(after.installed.find((e) => e.slug === 'z'));
     assert.ok(after.installed.find((e) => e.slug === 'a'));
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('readReviewMode: returns "shared" when frontmatter omits review_mode', () => {
+  const content = '---\nname: foo\ndescription: bar\n---\n\n# Body\n';
+  assert.equal(readReviewMode(content), 'shared');
+});
+
+test('readReviewMode: returns "dedicated" when frontmatter declares it', () => {
+  const content = '---\nname: brand\ndescription: x\nreview_mode: dedicated\n---\n\n# Body\n';
+  assert.equal(readReviewMode(content), 'dedicated');
+});
+
+test('readReviewMode: returns "shared" when review_mode appears only in body, not frontmatter', () => {
+  // Defensive: a `review_mode: dedicated` line inside the body (documentation,
+  // not configuration) must NOT be interpreted as the skill's mode. The parser
+  // scopes its match to the frontmatter block between the first two `---` lines.
+  const content = '---\nname: foo\ndescription: x\n---\n\nThe `review_mode: dedicated` field is documented here.\n';
+  assert.equal(readReviewMode(content), 'shared');
+});
+
+test('readReviewMode: returns "shared" for unknown values (forward-compat)', () => {
+  const content = '---\nname: foo\nreview_mode: experimental\n---\n';
+  assert.equal(readReviewMode(content), 'shared');
+});
+
+test('readReviewMode: strips YAML string quotes around the value', () => {
+  // YAML allows `review_mode: "dedicated"` and `review_mode: 'dedicated'`.
+  // Both must resolve to dedicated; otherwise an author using either valid
+  // YAML form gets silent shared-routing.
+  for (const form of [
+    '---\nname: x\nreview_mode: "dedicated"\n---\n',
+    "---\nname: x\nreview_mode: 'dedicated'\n---\n",
+  ]) {
+    assert.equal(readReviewMode(form), 'dedicated', `quoted form: ${form.match(/review_mode:[^\n]+/)[0]}`);
+  }
+});
+
+test('readReviewMode: returns "shared" on missing/empty/non-string input', () => {
+  assert.equal(readReviewMode(null), 'shared');
+  assert.equal(readReviewMode(undefined), 'shared');
+  assert.equal(readReviewMode(''), 'shared');
+  assert.equal(readReviewMode(42), 'shared');
+});
+
+test('partitionByReviewMode: splits skills by review_mode, defaulting to shared', () => {
+  const skills = [
+    { name: 'critical-issues-only', content: '---\nname: a\nreview_mode: shared\n---\n' },
+    { name: 'brand-voice-review',    content: '---\nname: b\nreview_mode: dedicated\n---\n' },
+    { name: 'no-mode',               content: '---\nname: c\n---\n' },
+    { name: 'pii-and-compliance',    content: '---\nname: d\nreview_mode: dedicated\n---\n' },
+  ];
+  const { shared, dedicated } = partitionByReviewMode(skills);
+  assert.deepEqual(shared.map((s) => s.name), ['critical-issues-only', 'no-mode']);
+  assert.deepEqual(dedicated.map((s) => s.name), ['brand-voice-review', 'pii-and-compliance']);
+});
+
+test('partitionByReviewMode: handles skills with no content (defaults to shared)', () => {
+  const skills = [
+    { name: 'a' },                      // no content
+    { name: 'b', content: undefined },  // explicit undefined
+    { name: 'c', content: '---\nname: c\nreview_mode: dedicated\n---\n' },
+  ];
+  const { shared, dedicated } = partitionByReviewMode(skills);
+  assert.deepEqual(shared.map((s) => s.name), ['a', 'b']);
+  assert.deepEqual(dedicated.map((s) => s.name), ['c']);
+});
+
+test('readReviewMode: all 4 bundled baseline skills declare shared mode', async () => {
+  // Pins the contract that v0.5.9 added: baselines are bug-finding /
+  // convention / evidence skills; bundling them in one Claude call preserves
+  // cross-correlation. If a future baseline drifts to dedicated, this test
+  // catches the regression at the right layer.
+  const baselineDir = join(process.cwd(), 'templates', 'skills', 'baseline');
+  const { readdir, readFile } = await import('node:fs/promises');
+  const names = (await readdir(baselineDir)).filter((n) => n.endsWith('.md'));
+  assert.ok(names.length >= 4, `expected ≥4 bundled baselines, found ${names.length}`);
+  for (const name of names) {
+    const content = await readFile(join(baselineDir, name), 'utf8');
+    assert.equal(readReviewMode(content), 'shared', `baseline ${name} should be shared-mode`);
+  }
 });
