@@ -15,6 +15,7 @@ PR's CI run, so this file is always coherent with current `main`.
 
 ## 2026-05
 
+- **2026-05-18** — Sync repo workflow files with v0.5.6 template change (checkout v6, drop FORCE shim) *(workflow/checkout-v6-repo)* — [decisions-branches/workflow__checkout-v6-repo.md](decisions-branches/workflow__checkout-v6-repo.md)
 - **2026-05-18** — Bump actions/checkout v5 to v6, drop FORCE_JAVASCRIPT shim, defensive git show in allowlist *(feat/checkout-v6-templates)* — [decisions-branches/feat__checkout-v6-templates.md](decisions-branches/feat__checkout-v6-templates.md)
 - **2026-05-18** — Docs polish per audit P2 + P5: 401 framing, fork-PR YAML, custom-skill example *(site/docs-polish-p2-p5)* — [decisions-branches/site__docs-polish-p2-p5.md](decisions-branches/site__docs-polish-p2-p5.md)
 - **2026-05-18** — clud-bug init offers required_conversation_resolution setup (issue #43 item 2) *(feat/init-branch-protection)* — [decisions-branches/feat__init-branch-protection.md](decisions-branches/feat__init-branch-protection.md)
