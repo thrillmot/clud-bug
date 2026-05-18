@@ -444,6 +444,18 @@ test('readReviewMode: returns "shared" for unknown values (forward-compat)', () 
   assert.equal(readReviewMode(content), 'shared');
 });
 
+test('readReviewMode: strips YAML string quotes around the value', () => {
+  // YAML allows `review_mode: "dedicated"` and `review_mode: 'dedicated'`.
+  // Both must resolve to dedicated; otherwise an author using either valid
+  // YAML form gets silent shared-routing.
+  for (const form of [
+    '---\nname: x\nreview_mode: "dedicated"\n---\n',
+    "---\nname: x\nreview_mode: 'dedicated'\n---\n",
+  ]) {
+    assert.equal(readReviewMode(form), 'dedicated', `quoted form: ${form.match(/review_mode:[^\n]+/)[0]}`);
+  }
+});
+
 test('readReviewMode: returns "shared" on missing/empty/non-string input', () => {
   assert.equal(readReviewMode(null), 'shared');
   assert.equal(readReviewMode(undefined), 'shared');
