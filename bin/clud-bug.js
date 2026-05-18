@@ -339,12 +339,30 @@ async function runInitBranchProtection(args, { gh, prompt } = {}) {
     return;
   }
 
-  // current.state is now 'disabled' or 'no-protection'.
-  log(`  required_conversation_resolution: not set${current.state === 'no-protection' ? ' (no base protection rule on this branch)' : ''}`);
+  // Short-circuit on no-protection BEFORE prompting. The single-flag
+  // POST endpoint requires a base protection rule on the branch — if
+  // there's none, enableConversationResolution would just 404. Skip
+  // the prompt and go straight to the actionable guidance (set up
+  // basic protection first, then re-run).
+  if (current.state === 'no-protection') {
+    log('  required_conversation_resolution: not set (no base protection rule on this branch)');
+    log('  Cannot enable yet: this branch has no base protection rule.');
+    log(`    Set one up first: Settings → Branches → Add rule for ${branch}`);
+    log('    Then re-run clud-bug init (or toggle the setting in the GUI).');
+    return;
+  }
+
+  // current.state is 'disabled'.
+  log('  required_conversation_resolution: not set');
 
   // Decide whether to prompt.
   let shouldEnable;
   if (args.acceptAll) {
+    // --accept-all is a real side-effect flag here: it flips a
+    // merge-gating repo setting. Make that explicit in the log so
+    // CI users running `clud-bug init --accept-all` see exactly
+    // what's happening instead of silently noticing later.
+    log('  --accept-all: will enable required_conversation_resolution. Pass --no-set-protection to skip.');
     shouldEnable = true;
   } else {
     const ask = prompt ?? (async (q) => {

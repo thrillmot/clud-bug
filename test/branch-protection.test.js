@@ -70,10 +70,22 @@ test('getProtectionState: no-protection on 404 ("Branch not protected")', async 
 
 test('getProtectionState: forbidden on 403', async () => {
   const gh = mockGh([
-    [/protection --jq/, { code: 1, stdout: '', stderr: 'gh: 403 Forbidden — must have admin rights' }],
+    [/protection --jq/, { code: 1, stdout: '', stderr: 'gh: 403 Forbidden — Resource not accessible by integration' }],
   ]);
   const s = await getProtectionState({ owner: 'o', repo: 'r', branch: 'main', gh });
   assert.deepEqual(s, { state: 'forbidden' });
+});
+
+test('getProtectionState: unrelated message containing "administrator" stays unknown (regex precision)', async () => {
+  // Regression: the prior regex used `/admin/i` which matched any token
+  // containing "admin". Now we key only on 403/Forbidden/Resource not
+  // accessible so an error like "Contact your administrator@example.com"
+  // doesn't get misclassified as a permission failure.
+  const gh = mockGh([
+    [/protection --jq/, { code: 1, stdout: '', stderr: 'something failed. Contact administrator@example.com.' }],
+  ]);
+  const s = await getProtectionState({ owner: 'o', repo: 'r', branch: 'main', gh });
+  assert.equal(s.state, 'unknown');
 });
 
 test('getProtectionState: unknown on any other error', async () => {
