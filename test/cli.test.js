@@ -52,7 +52,7 @@ test('init --offline --accept-all in a fresh repo writes workflow + manifest', a
     'package.json': JSON.stringify({ name: 'demo', dependencies: { next: '^15' }}),
   });
   try {
-    const r = run(dir, ['init', '--offline', '--accept-all']);
+    const r = run(dir, ['init', '--offline', '--accept-all', '--no-set-protection']);
     assert.equal(r.status, 0, `init failed: ${r.stderr}`);
     const wf = await readFile(join(dir, '.github/workflows/clud-bug-review.yml'), 'utf8');
     assert.match(wf, /allowedTools/);
@@ -61,13 +61,16 @@ test('init --offline --accept-all in a fresh repo writes workflow + manifest', a
     assert.ok(manifest.installed.every(e => e.kind === 'baseline'));
     // The new collaboration skill ships in the baseline kit.
     assert.ok(manifest.installed.some(e => e.slug === 'clud-bug-collaboration'));
+    // --no-set-protection should print the documented skip line — the
+    // step exists and gates correctly on the flag.
+    assert.match(r.stdout, /Branch protection: skipped \(--no-set-protection\)/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test('init: fresh install gets strictMode: true (v0.4 default)', async () => {
   const dir = await makeRepo({ 'package.json': '{}' });
   try {
-    run(dir, ['init', '--offline', '--accept-all']);
+    run(dir, ['init', '--offline', '--accept-all', '--no-set-protection']);
     const manifest = JSON.parse(await readFile(join(dir, '.claude/skills/.clud-bug.json'), 'utf8'));
     assert.equal(manifest.strictMode, true, 'fresh install should default to strict mode');
   } finally { await rm(dir, { recursive: true, force: true }); }
@@ -87,7 +90,7 @@ test('init: existing v0.3 advisory install (no strictMode field, has lastUpdate)
         lastUpdateVersion: '0.3.4',
       }, null, 2),
     );
-    run(dir, ['init', '--offline', '--accept-all']);
+    run(dir, ['init', '--offline', '--accept-all', '--no-set-protection']);
     const manifest = JSON.parse(await readFile(join(dir, '.claude/skills/.clud-bug.json'), 'utf8'));
     assert.equal(manifest.strictMode, undefined, 'pre-existing advisory install must keep advisory behavior');
   } finally { await rm(dir, { recursive: true, force: true }); }
@@ -101,7 +104,7 @@ test('init: existing install with explicit strictMode: false stays false', async
       join(dir, '.claude/skills/.clud-bug.json'),
       JSON.stringify({ version: 1, installed: [], strictMode: false }, null, 2),
     );
-    run(dir, ['init', '--offline', '--accept-all']);
+    run(dir, ['init', '--offline', '--accept-all', '--no-set-protection']);
     const manifest = JSON.parse(await readFile(join(dir, '.claude/skills/.clud-bug.json'), 'utf8'));
     assert.equal(manifest.strictMode, false, 'explicit opt-out must be preserved');
   } finally { await rm(dir, { recursive: true, force: true }); }
@@ -110,7 +113,7 @@ test('init: existing install with explicit strictMode: false stays false', async
 test('list shows baseline + custom after init + hand-authored skill', async () => {
   const dir = await makeRepo({ 'package.json': '{}' });
   try {
-    run(dir, ['init', '--offline', '--accept-all']);
+    run(dir, ['init', '--offline', '--accept-all', '--no-set-protection']);
     // hand-author a custom skill
     const customDir = join(dir, '.claude/skills/my-team-rules');
     await mkdir(customDir, { recursive: true });
@@ -135,7 +138,7 @@ test('list reports zero state cleanly', async () => {
 test('remove refuses unmanaged slug, succeeds on managed one', async () => {
   const dir = await makeRepo({});
   try {
-    run(dir, ['init', '--offline', '--accept-all']);
+    run(dir, ['init', '--offline', '--accept-all', '--no-set-protection']);
     const fail = run(dir, ['remove', 'no-such-slug']);
     assert.notEqual(fail.status, 0);
     assert.match(fail.stderr, /not in the clud-bug manifest/);
@@ -217,7 +220,7 @@ test('refresh --offline --accept-all does NOT remove remote skills from manifest
 test('refresh --offline shows no-op when only baseline installed', async () => {
   const dir = await makeRepo({ 'package.json': '{}' });
   try {
-    run(dir, ['init', '--offline', '--accept-all']);
+    run(dir, ['init', '--offline', '--accept-all', '--no-set-protection']);
     const r = run(dir, ['refresh', '--offline', '--accept-all']);
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /sync with skills\.sh|collection updated/);

@@ -2,6 +2,16 @@
 
 All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5] — 2026-05-18
+
+### Added
+- **`clud-bug init` offers to enable `required_conversation_resolution`** on the default branch. The bot already auto-resolves its own review threads when fixes land; without this branch-protection setting, that auto-resolution doesn't gate merges. The init step detects your repo + default branch via `gh`, inspects the current state, and prompts to enable. Failure modes (no admin perms, no base protection rule, network error) degrade to advisory messages — they never fail init.
+- **New flag `--no-set-protection`** — skips the prompt + API call entirely. For repos that manage branch protection via ruleset or org policy (and don't want clud-bug editing branch protection from underneath them).
+- `--accept-all,-y` now also auto-accepts the branch-protection prompt.
+
+### Notes
+- `clud-bug init` still works in repos without `gh` installed or in non-GitHub-hosted repos. The branch-protection step prints a one-line advisory and moves on.
+
 ## [0.5.4] — 2026-05-18
 
 ### Added
@@ -49,6 +59,7 @@ All notable changes to clud-bug. Format follows [Keep a Changelog](https://keepa
 - **Bot-authored PRs are now handled gracefully.** PRs from `dependabot[bot]`, `renovate[bot]`, or forks (where GitHub deliberately doesn't pass repository secrets) used to fail loudly red — wrong signal. Now a guard step detects the case, posts a one-line advisory comment ("Clud Bug skipped — bot/fork PR cannot access secrets"), and exits 0. Check stays green; the skip is visible. Owner-authored PRs without the secret still fail loud.
 - **Site polish (carries over from the unreleased entry):** alive bug emoji (layered breathe + twitch + scuttle animations), Plate label gloss, thrillmot footer credit.
 
+[0.5.5]: https://github.com/thrillmot/clud-bug/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/thrillmot/clud-bug/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/thrillmot/clud-bug/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/thrillmot/clud-bug/compare/v0.5.1...v0.5.2
