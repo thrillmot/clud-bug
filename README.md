@@ -182,6 +182,26 @@ After install:
 3. Within ~2 min, Clud Bug should post a comment flagging it.
 4. If no comment: check the **Actions** tab logs. Look for `gh pr comment` invocations and any "Resource not accessible by integration" errors (usually a permissions issue or a fork PR).
 
+### Reading a review
+
+Every Clud Bug review opens with a status line that tells you exactly what changed since the previous pass — particularly useful on re-review after you push a fix:
+
+```
+## 🐛 Clud Bug review
+
+**This round:** 0 critical · 1 minor · 3 resolved from prior · 0 still open
+
+### Findings
+…
+```
+
+- **critical** — new critical findings in this review (these are what strict mode gates on)
+- **minor** — non-critical findings (suggestions / nits)
+- **resolved from prior** — prior unresolved threads the bot just cleared because it verified your fix in the diff
+- **still open** — prior threads whose issue is still standing
+
+Same format every time; zero values are always present so the line is easy to scan and parse.
+
 ## Manual install (advanced)
 
 If you don't want to use the CLI, you can install a generic workflow by hand:
