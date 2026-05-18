@@ -76,9 +76,6 @@ jobs:
     permissions:
       contents: read
       id-token: write    # OIDC for npm Trusted Publishing + provenance
-    env:
-      # See clud-bug-review.yml for the rationale on this env var.
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
       - name: Validate dispatch inputs
         # Guard the workflow_dispatch path. The 'tag' input had to drop
@@ -99,7 +96,7 @@ jobs:
           fi
 
       - name: Checkout the tag
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # On tag push, github.ref is refs/tags/vX.Y.Z (correct).
           # On workflow_dispatch (publish mode), inputs.tag is now
@@ -137,8 +134,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
       - uses: actions/setup-node@v5
         with:
